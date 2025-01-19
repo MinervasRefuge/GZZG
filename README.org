@@ -1,0 +1,5 @@
+#+OPTIONS: toc:nil
+#+OPTIONS: ^:nil
+
+* GZZG
+A exploration in Zig, with a hint of C.
