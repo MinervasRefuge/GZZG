@@ -213,27 +213,15 @@ fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t,
 
     var l: *g.List = @alignCast(@ptrCast(op_data));
 
-    const po = g.Pair.from(g.String.from(std.mem.span(name)), H5LInfo2.init(info));
+    l.* = l.cons(g.Pair.from(g.String.from(std.mem.span(name)), H5LInfo2.init(info)));
 
-    //    g.display(po);
-    //    g.newline();
-    //    g.display(l.*);
-    //    g.newline();
-    if (l.lenZ() == 0) {
-        l.* = g.List.init1(po);
-    } else {
-        l.* = l.cons(po);
-    }
-    g.display(l.*);
-    g.newline();
     return 0;
 }
 
 pub fn getGroupsLinks(group: H5HID) g.List {
-    const l: g.List = g.List.init0();
+    var l: g.List = g.List.init0();
 
-    _ = h5.H5Lvisit2(group.to(), h5.H5_INDEX_NAME, h5.H5_ITER_NATIVE, linkIter, @constCast(@ptrCast(&l)));
+    _ = h5.H5Lvisit2(group.to(), h5.H5_INDEX_NAME, h5.H5_ITER_NATIVE, linkIter, @ptrCast(&l));
 
-    g.display(l);
     return l;
 }
