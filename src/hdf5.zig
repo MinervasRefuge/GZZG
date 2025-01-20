@@ -6,13 +6,27 @@ const g = gzzg;
 
 const guile = gzzg.guile; // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 
+// zig fmt: off
 pub const h5 = @cImport({
-    @cInclude("H5public.h");
-    @cInclude("H5Fpublic.h");
-    @cInclude("H5Gpublic.h");
-    @cInclude("H5Lpublic.h");
-    @cInclude("H5Ppublic.h");
+    // @cInclude("H5Apublic.h");   // Attributes (H5A)
+    // @cInclude("H5Dpublic.h");   // Datasets (H5D)
+    // @cInclude("H5Spublic.h");   // Dataspaces (H5S)
+    // @cInclude("H5Tpublic.h");   // Datatypes (H5T)
+    // @cInclude("H5Epublic.h");   // Error Handling (H5E)
+    // @cInclude("H5ESpublic.h");  // Event Set (H5ES)
+    @cInclude("H5Fpublic.h");   // Files (H5F)
+    // @cInclude("H5Zpublic.h");   // Filters (H5Z)
+    @cInclude("H5Gpublic.h");   // Groups (H5G)
+    // @cInclude("H5Ipublic.h");   // Identifiers (H5I)
+    @cInclude("H5public.h");    // Library General (H5)
+    @cInclude("H5Lpublic.h");   // Links (H5L)
+    // @cInclude("H5Opublic.h");   // Objects (H5O)
+    @cInclude("H5Ppublic.h");   // Property Lists (H5P)
+    // @cInclude("H5PLpublic.h");  // Dynamically-loaded Plugins (H5PL)
+    // @cInclude("H5Rpublic.h");   // References (H5R)
+    // @cInclude("H5VLpublic.h");  // VOL Connector (H5VL)
 });
+// zig fmt: on
 
 export fn hello_world() guile.SCM {
     const out_port = guile.scm_current_output_port();
@@ -33,10 +47,13 @@ fn init_hdf5_module() void {
     _ = g.defineGSubRAndExport("open-h5", openH5);
     _ = g.defineGSubRAndExport("close-h5", closeH5);
 
-    _ = g.defineGSubRAndExport("open-h5-group", openH5Group);
-    _ = g.defineGSubRAndExport("close-h5-group", closeH5Group);
+    _ = g.defineGSubRAndExport("open-group", openH5Group);
+    _ = g.defineGSubRAndExport("close-group", closeH5Group);
 
-    _ = g.defineGSubRAndExport("h5-group-links", getGroupsLinks);
+    _ = g.defineGSubRAndExport("group-links", getGroupsLinks);
+
+    _ = g.defineGSubRAndExport("open-dataset", openH5Dataset);
+    _ = g.defineGSubRAndExport("close-dataset", closeH5Dataset);
 
     H5HID.register();
     H5GInfo.register();
@@ -44,48 +61,12 @@ fn init_hdf5_module() void {
     H5LInfo2.register();
 }
 
-//pub export fn gopenh5(file: guile.SCM) guile.SCM {
-//    return openH5(.{ .s = file }, .{ .s = guile.SCM_UNDEFINED }).s;
-//}
-//
-//pub export fn gcloseh5(hdl: guile.SCM) guile.SCM {
-//    closeH5(.{ .s = hdl });
-//
-//    return guile.SCM_UNDEFINED;
-//}
-//
-//pub fn gopenH5Group(h5Hndl: guile.SCM, path: guile.SCM) guile.SCM {
-//    return openH5Group(.{ .s = h5Hndl }, .{ .s = path }).s;
-//}
-//
-//pub fn gcloseH5Group(h5GroupHndl: guile.SCM) void {
-//    closeH5Group(.{ .s = h5GroupHndl });
-//}
-//
-//pub fn gH5GInfo(groupHndl: guile.SCM) guile.SCM {
-//    return H5GInfo.get(.{ .s = groupHndl }).s;
-//}
-//
-//pub fn gH5GInfoToString(info: guile.SCM) guile.SCM {
-//    return (H5GInfo{ .s = info }).toString().s;
-//}
-//
-//pub fn gGetGroupsLinks(group: guile.SCM) guile.SCM {
-//    return getGroupsLinks(.{ .s = group }).s;
-//}
-
-//
-//
-//
-//
-
 pub fn openH5(file: g.String, _: g.List) H5HID {
     //    H5F_ACC_RDWR
     //        H5F_ACC_RDONLY
 
     const v = file.toCStr(alloc) catch @trap();
     defer alloc.free(v);
-    std.debug.print("{c}\n", .{v});
     return H5HID.init(h5.H5Fopen(v, 0, h5.H5P_DEFAULT));
 }
 
@@ -102,6 +83,14 @@ pub fn openH5Group(h5Hndl: H5HID, path: g.String) H5HID { //todo H5HID or #f
 
 pub fn closeH5Group(h5GroupHndl: H5HID) void {
     _ = h5.H5Gclose(h5GroupHndl.to());
+}
+
+pub fn openH5Dataset(hndl: H5HID, path: g.String) H5HID {
+    return H5HID.init(h5.H5Dopen2(hndl.to(), path.toCStr(alloc) catch @trap(), h5.H5P_DEFAULT));
+}
+
+pub fn closeH5Dataset(hndl: H5HID) void {
+    _ = h5.H5Dclose(hndl.to());
 }
 
 //
@@ -218,6 +207,7 @@ fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t,
     return 0;
 }
 
+//todo rename
 pub fn getGroupsLinks(group: H5HID) g.List {
     var l: g.List = g.List.init0();
 

@@ -4,36 +4,43 @@
 
 (define-module (hdf5-test)
   #:use-module (ice-9 pretty-print)
+  #:use-module (srfi srfi-1)
   #:use-module ((hdf5) #:prefix hdf5:))
 
 (hdf5:hello-world)
 
+;; todo: deal with failure
+(define (call-with-h5-file file fn1)
+  (let ((hndl #f))
+    (dynamic-wind
+      (λ () (set! hndl (hdf5:open-h5 file '())))
+      (λ () (fn1 hndl))
+      (λ () (hdf5:close-h5 hndl)))))
+
+(define (call-with-h5-group h5-hndl group fn1)
+  (let ((hndl #f))
+    (dynamic-wind
+      (λ () (set! hndl (hdf5:open-group h5-hndl "/")))
+      (λ () (fn1 hndl))
+      (λ () (hdf5:close-group hndl)))))
+
+(define (call-with-h5-dataset h5-hndl group fn1)
+  (let ((hndl #f))
+    (dynamic-wind
+      (λ () (set! hndl (hdf5:open-dataset h5-hndl group)))
+      (λ () (fn1 hndl))
+      (λ () (hdf5:close-dataset hndl)))))
+
 
 ;; http://hdfeos.org/zoo/index_openLaRC_Examples.php
 ;; https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDF/CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5
-(define hndl-h5
-  (hdf5:open-h5 "CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5" '()))
-(display hndl-h5)
-(newline)
 
-(define hndl-group (hdf5:open-h5-group hndl-h5 "/"))
-(display hndl-group)
-(newline)
-
-(define ginfo (hdf5:h5-group-info hndl-group))
-(display ginfo)
-(newline)
-(display (hdf5:h5-group-info->string ginfo))
-(newline)
-
-(display  (length (map (λ (a) (if (string? a) a (cons (car a) (hdf5:link-info2->string (cdr a)))))
-                       (hdf5:h5-group-links hndl-group))))
-(newline)
-
-;;(pretty-print (link-info2->string))
-
-;;(close-h5-group hndl-group)
-
-(hdf5:close-h5 hndl-h5)
-
-
+(call-with-h5-file "CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5"
+  (λ (file-hndl)
+    (call-with-h5-group file-hndl "/"
+      (λ (group-hndl)
+        (let ((links (hdf5:group-links group-hndl)))
+          (pretty-print links)
+          (call-with-h5-dataset file-hndl (car (third links))
+            (λ (ds-hndl)
+              (pretty-print ds-hndl))))))))
