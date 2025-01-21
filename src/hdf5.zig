@@ -28,13 +28,6 @@ pub const h5 = @cImport({
 });
 // zig fmt: on
 
-export fn hello_world() guile.SCM {
-    const out_port = guile.scm_current_output_port();
-    const scmstr = guile.scm_from_utf8_string("Hello World!\n");
-
-    return guile.scm_display(scmstr, out_port);
-}
-
 var gc = g.GuileGCAllocator{};
 var alloc = gc.allocator();
 
@@ -42,8 +35,8 @@ export fn init_hdf5() void {
     _ = g.defineModule("hdf5", init_hdf5_module);
 }
 
+//todo is H5HID a HNDL or just and ID?
 fn init_hdf5_module() void {
-    _ = g.defineGSubRAndExport("hello-world", hello_world);
     _ = g.defineGSubRAndExport("open-h5", openH5);
     _ = g.defineGSubRAndExport("close-h5", closeH5);
 
