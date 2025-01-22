@@ -7,8 +7,6 @@
   #:use-module (srfi srfi-1)
   #:use-module ((hdf5) #:prefix hdf5:))
 
-(hdf5:hello-world)
-
 ;; todo: deal with failure
 (define (call-with-h5-file file fn1)
   (let ((hndl #f))
@@ -35,12 +33,38 @@
 ;; http://hdfeos.org/zoo/index_openLaRC_Examples.php
 ;; https://gamma.hdfgroup.org/ftp/pub/outgoing/NASAHDF/CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5
 
+;; (call-with-h5-file "CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5"
+;;   (λ (file-hndl)
+;;     (call-with-h5-group file-hndl "/"
+;;       (λ (group-hndl)
+;;         (let ((links (hdf5:group-links group-hndl)))
+;;           (pretty-print links)
+;;           (call-with-h5-dataset file-hndl (car (third links))
+;;             (λ (ds-hndl)
+;;               (let ((ds-type-hndl (hdf5:get-type ds-hndl)))
+;;                 (pretty-print (hdf5:get-type-class ds-type-hndl))
+;;                 (hdf5:close-type ds-type-hndl))
+;;               (let ((space-hndl (hdf5:get-dataset-dataspace ds-hndl)))
+;;                 (display "space: ")
+;;                 (display space-hndl)
+;;                 (newline)
+;;                 (hdf5:close-dataspace space-hndl))
+;;               (pretty-print ds-hndl)
+;;               (let ((prop-hndl (hdf5:get-dataset-plist ds-hndl)))
+;;                 (pretty-print (hdf5:get-properties prop-hndl))
+;;                 (hdf5:close-plist prop-hndl))
+;;               (hdf5:read-dataset ds-hndl))))))))
+
+
+;;todo check the type of each path
 (call-with-h5-file "CATS-ISS_L2O_D-M7.2-V2-01_05kmLay.2017-05-01T00-47-40T01-28-41UTC.hdf5"
   (λ (file-hndl)
-    (call-with-h5-group file-hndl "/"
-      (λ (group-hndl)
-        (let ((links (hdf5:group-links group-hndl)))
-          (pretty-print links)
-          (call-with-h5-dataset file-hndl (car (third links))
-            (λ (ds-hndl)
-              (pretty-print ds-hndl))))))))
+    (let ((paths (call-with-h5-group file-hndl "/" hdf5:group-links)))
+      (pretty-print (map (λ (g) (cons (car g) 
+                                      (call-with-h5-dataset file-hndl (car g) 
+                                        (λ (group-hndl) 
+                                          (let* ((type-hndl (hdf5:get-type group-hndl))
+                                                 (ntype (hdf5:get-type-class type-hndl)))
+                                            (hdf5:close-type type-hndl)
+                                            ntype)))))
+                         paths)))))

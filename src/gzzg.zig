@@ -835,3 +835,42 @@ pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) vo
                                  ExpC.handler, @constCast(@ptrCast(&captures)));
             // zig fmt: on
 }
+
+pub fn UnionSCM(scmTypes: anytype) type {
+    //todo: check for tuple of types of scms
+    comptime var uf: [scmTypes.len]std.builtin.Type.UnionField = undefined;
+    comptime var ef: [scmTypes.len]std.builtin.Type.EnumField = undefined;
+
+    // check if greater then lower case alphabet
+    inline for (scmTypes, 0..) |t, i| {
+        //todo: check the types
+
+        uf[i] = std.builtin.Type.UnionField{ .alignment = 0, .name = &[_:0]u8{0x61 + i}, .type = t };
+        ef[i] = std.builtin.Type.EnumField{ .name = &[_:0]u8{0x61 + i}, .value = i };
+
+        //todo the type names will be wrong.
+    }
+
+    // zig fmt: off
+    const ET = @Type(.{
+        .Enum = .{
+            .tag_type = u8,
+            .fields = &ef,
+            .decls = &[_]std.builtin.Type.Declaration{},
+            .is_exhaustive = true
+    }});
+
+    return @Type(.{
+        .Union = .{
+            .layout = .auto,
+            .tag_type = ET,
+            .fields = &uf,
+            .decls = &[_]std.builtin.Type.Declaration{}
+    }});
+    // zig fmt: on
+}
+
+//fn check() g.UnionSCM(.{ g.List, g.Boolean }) {
+//    return .{ .a = g.List.init0() };
+//}
+//

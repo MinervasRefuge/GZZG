@@ -4,14 +4,14 @@ const std = @import("std");
 const gzzg = @import("gzzg");
 const g = gzzg;
 
-const guile = gzzg.guile; // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+const guile = gzzg.guile;
 
 // zig fmt: off
 pub const h5 = @cImport({
     // @cInclude("H5Apublic.h");   // Attributes (H5A)
-    // @cInclude("H5Dpublic.h");   // Datasets (H5D)
-    // @cInclude("H5Spublic.h");   // Dataspaces (H5S)
-    // @cInclude("H5Tpublic.h");   // Datatypes (H5T)
+    @cInclude("H5Dpublic.h");   // Datasets (H5D)
+    @cInclude("H5Spublic.h");   // Dataspaces (H5S)
+    @cInclude("H5Tpublic.h");   // Datatypes (H5T)
     // @cInclude("H5Epublic.h");   // Error Handling (H5E)
     // @cInclude("H5ESpublic.h");  // Event Set (H5ES)
     @cInclude("H5Fpublic.h");   // Files (H5F)
@@ -48,10 +48,26 @@ fn init_hdf5_module() void {
     _ = g.defineGSubRAndExport("open-dataset", openH5Dataset);
     _ = g.defineGSubRAndExport("close-dataset", closeH5Dataset);
 
+    _ = g.defineGSubRAndExport("get-layout", getLayout);
+    _ = g.defineGSubRAndExport("read-dataset", readDataset);
+
+    _ = g.defineGSubRAndExport("get-dataset-dataspace", getDatasetSpace);
+    _ = g.defineGSubRAndExport("close-dataspace", closeDataSpace);
+
+    _ = g.defineGSubRAndExport("get-dataset-plist", getDatasetPList);
+    _ = g.defineGSubRAndExport("close-plist", closePList);
+    _ = g.defineGSubRAndExport("get-properties", getProperties);
+
+    _ = g.defineGSubRAndExport("get-type", getType);
+    _ = g.defineGSubRAndExport("get-type-class", getTypeClass);
+
     H5HID.register();
     H5GInfo.register();
 
     H5LInfo2.register();
+
+    // Datatypes (H5T)
+    _ = g.defineGSubRAndExport("close-type", closeType);
 }
 
 pub fn openH5(file: g.String, _: g.List) H5HID {
@@ -95,24 +111,24 @@ const H5HID = g.SCMWrapper(struct {
     }
 
     pub fn init(h: h5.hid_t) H5HID {
-        if (@typeInfo(h5.hid_t).Int.bits == @typeInfo(usize).Int.bits) { // can I stuff the bits into the pointer
-            return @This().makeSCM(@ptrFromInt(@as(usize, @bitCast(h))));
-        } else {
-            const p = @This().make(alloc) catch @trap();
-            p.* = h;
+        //   if (@typeInfo(h5.hid_t).Int.bits == @typeInfo(usize).Int.bits) { // can I stuff the bits into the pointer
+        //       return @This().makeSCM(@ptrFromInt(@as(usize, @bitCast(h))));
+        //   } else {
+        const p = @This().make(alloc) catch @trap();
+        p.* = h;
 
-            return @This().makeSCM(p);
-        }
+        return @This().makeSCM(p);
+        //}
     }
 
     pub fn to(h: H5HID) h5.hid_t {
         H5HID.assert(h.s);
 
-        if (@typeInfo(h5.hid_t).Int.bits == @typeInfo(usize).Int.bits) {
-            return @bitCast(@intFromPtr(guile.scm_foreign_object_ref(h.s, 0)));
-        } else {
-            return @This().retrieve(h).?.*;
-        }
+        //if (@typeInfo(h5.hid_t).Int.bits == @typeInfo(usize).Int.bits) {
+        //    return @bitCast(@intFromPtr(guile.scm_foreign_object_ref(h.s, 0)));
+        //} else {
+        return @This().retrieve(h).?.*;
+        //}
     }
 
     usingnamespace g.SetupFT(H5HID, h5.hid_t, "H5HID", "hndl");
@@ -208,3 +224,125 @@ pub fn getGroupsLinks(group: H5HID) g.List {
 
     return l;
 }
+
+pub fn getLayout(plist_id: H5HID) g.Symbol {
+    return switch (h5.H5Pget_layout(plist_id.to())) {
+        h5.H5D_COMPACT => g.Symbol.from("H5D-COMPACT"),
+        h5.H5D_CONTIGUOUS => g.Symbol.from("H5D-CONTIGUOUS"),
+        h5.H5D_CHUNKED => g.Symbol.from("H5D-CHUNKED"),
+        h5.H5D_VIRTUAL => g.Symbol.from("H5D-VIRTUAL"),
+        else => |_| {
+            //todo actual error stuff
+            return g.Symbol.from("ERROR");
+        },
+    };
+}
+
+//pub fn getDataSpace(dataset_hndl: H5HID)
+
+pub fn readDataset(dataset_hndl: H5HID) void {
+    const dhndl = dataset_hndl.to();
+    const size = h5.H5Dget_storage_size(dhndl);
+
+    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    //const allocstd = gpa.allocator();
+
+    const buf = alloc.alloc(u8, size) catch @trap();
+    std.debug.print("buffer size:{d}\n", .{buf.len});
+
+    _ = h5.H5Dread(dhndl, h5.H5T_NATIVE_INT_g, h5.H5S_ALL, h5.H5S_ALL, h5.H5P_DEFAULT, buf.ptr);
+    //allocstd.free(buf);
+}
+
+pub fn getDatasetSpace(dataset_hndl: H5HID) H5HID {
+    const out = h5.H5Dget_space(dataset_hndl.to());
+    // can return H5I_INVALID_HID
+    return H5HID.init(out);
+}
+
+pub fn closeDataSpace(dataspace_hndl: H5HID) void {
+    _ = h5.H5Sclose(dataspace_hndl.to());
+}
+
+pub fn getDatasetPList(dataset_hndl: H5HID) H5HID {
+    return H5HID.init(h5.H5Dget_create_plist(dataset_hndl.to()));
+}
+
+pub fn closePList(plist_hndl: H5HID) void {
+    _ = h5.H5Pclose(plist_hndl.to());
+}
+
+pub fn getProperties(plist_hndl: H5HID) g.List {
+    var l = g.List.init0();
+
+    _ = h5.H5Piterate(plist_hndl.to(), null, propIter, @ptrCast(&l));
+
+    return l;
+}
+
+//h5.H5P_iterate_t
+
+//?*const fn (hid_t, [*c]const u8, ?*anyopaque) callconv(.C) herr_t;
+
+//hid_t id, const char *name, void *iter_data)
+//fn propIter(id: h5.hid_t, name: [*c]const u8, iter_data: ?*anyopaque) callconv(.C) h5.herr_t {
+fn propIter(_: h5.hid_t, name: [*c]const u8, iter_data: ?*anyopaque) callconv(.C) h5.herr_t {
+    var l: *g.List = @alignCast(@ptrCast(iter_data));
+
+    l.* = l.cons(g.String.from(std.mem.span(name)));
+
+    return 0;
+}
+
+fn getType(dataset_hndl: H5HID) H5HID {
+    return H5HID.init(h5.H5Dget_type(dataset_hndl.to()));
+}
+
+// zig fmt: off
+fn getTypeClass(type_hndl: H5HID) g.Symbol {
+    return switch (h5.H5Tget_class(type_hndl.to())) {
+        h5.H5T_NO_CLASS  => g.Symbol.from("H5T_NO_CLASS"),
+        h5.H5T_INTEGER   => g.Symbol.from("H5T_INTEGER"),
+        h5.H5T_FLOAT     => g.Symbol.from("H5T_FLOAT"),
+        h5.H5T_TIME      => g.Symbol.from("H5T_TIME"),
+        h5.H5T_STRING    => g.Symbol.from("H5T_STRING"),
+        h5.H5T_BITFIELD  => g.Symbol.from("H5T_BITFIELD"),
+        h5.H5T_OPAQUE    => g.Symbol.from("H5T_OPAQUE"),
+        h5.H5T_COMPOUND  => g.Symbol.from("H5T_COMPOUND"),
+        h5.H5T_REFERENCE => g.Symbol.from("H5T_REFERENCE"),
+        h5.H5T_ENUM      => g.Symbol.from("H5T_ENUM"),
+        h5.H5T_VLEN      => g.Symbol.from("H5T_VLEN"),
+        h5.H5T_ARRAY     => g.Symbol.from("H5T_ARRAY"),
+        h5.H5T_NCLASSES  => g.Symbol.from("H5T_NCLASSES"),
+        else => g.Symbol.from("error"),
+    };
+}
+// zig fmt: on
+
+fn closeType(type_hndl: H5HID) void {
+    _ = h5.H5Tclose(type_hndl.to());
+}
+//
+////H5Tget_class => H%T_COMPOUND
+//
+//const H5T_TYPES = enum(h5.enum_H5T_class_t) {
+//        H5T_NO_CLASS = H5T_NO_CLASS,
+//        H5T_INTEGER  = H5T_INTEGER,
+//        H5T_FLOAT
+//        H5T_TIME
+//        H5T_STRING
+//        H5T_BITFIELD
+//        H5T_OPAQUE
+//        H5T_COMPOUND
+//        H5T_REFERENCE
+//        H5T_ENUM
+//        H5T_VLEN
+//        H5T_ARRAY
+//        H5T_NCLASSES
+//};
+//
+//
+//pub fn RecreateEnum(tc: type, parms: anytype) type {
+//
+//}
+//
