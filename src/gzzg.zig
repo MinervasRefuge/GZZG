@@ -462,7 +462,7 @@ pub const String = struct {
     s: guile.SCM,
 
     pub fn from(s: []const u8) String {
-        return .{ .s = guile.scm_from_utf8_string(s.ptr) };
+        return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) };
     }
 
     pub fn fromCStr(s: [:0]const u8) String {
