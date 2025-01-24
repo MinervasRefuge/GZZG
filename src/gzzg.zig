@@ -214,18 +214,19 @@ pub fn SCMWrapper(comptime ns: ?type) type {
 }
 
 // §6.6 Data Types
+// using direct structs as @zig-zls@0.13.0 doesn't seem to handle `usingnamespace` correctly
 // zig fmt: off
 pub const Any        = SCMWrapper(null);
 
-pub const Boolean    = SCMWrapper(BooleanTrait);
-pub const Number     = SCMWrapper(NumberTrait);
+// pub const Boolean    = SCMWrapper(BooleanTrait);
+// pub const Number     = SCMWrapper(NumberTrait);
 pub const Character  = SCMWrapper(null);
 // Character Sets
-pub const String     = SCMWrapper(StringTrait);
-pub const Symbol     = SCMWrapper(SymbolTrait);
+// pub const String     = SCMWrapper(StringTrait);
+//pub const Symbol     = SCMWrapper(SymbolTrait);
 pub const Keyword    = SCMWrapper(null);
-pub const Pair       = SCMWrapper(PairTrait);
-pub const List       = SCMWrapper(ListTrait);
+// pub const Pair       = SCMWrapper(PairTrait);
+// pub const List       = SCMWrapper(ListTrait);
 pub const Vector     = SCMWrapper(null);
 // Bit Vectors
 pub const ByteVector = SCMWrapper(null);
@@ -265,7 +266,10 @@ pub const ForeignType = SCMWrapper(null);
 //                                         Boolean §6.6.1
 //                                         --------------
 
-const BooleanTrait = struct {
+pub const Boolean = struct {
+    s: guile.SCM,
+
+    //const BooleanTrait = struct {
     pub fn from(b: bool) Boolean {
         return .{ .s = if (b) guile.SCM_BOOL_T else guile.SCM_BOOL_F };
     }
@@ -287,7 +291,10 @@ const BooleanTrait = struct {
 //                                          Number §6.6.2
 //                                          -------------
 
-const NumberTrait = struct { //todo: is it worth swtching on bit ranges or only standard bit sizes?
+pub const Number = struct {
+    s: guile.SCM,
+
+    //const NumberTrait = struct { //todo: is it worth swtching on bit ranges or only standard bit sizes?
     // zig fmt: off
     pub fn from(n: anytype) Number {
         const scm = switch (@typeInfo(@TypeOf(n))) {
@@ -451,7 +458,9 @@ const NumberTrait = struct { //todo: is it worth swtching on bit ranges or only 
 //                                          -------------
 
 //todo: check string encoding perticulars.
-const StringTrait = struct {
+pub const String = struct {
+    s: guile.SCM,
+
     pub fn from(s: []const u8) String {
         return .{ .s = guile.scm_from_utf8_string(s.ptr) };
     }
@@ -500,7 +509,10 @@ const StringTrait = struct {
 //                                          Symbol §6.6.6
 //                                          -------------
 
-const SymbolTrait = struct {
+// const SymbolTrait = struct {
+pub const Symbol = struct {
+    s: guile.SCM,
+
     pub fn from(s: []const u8) Symbol {
         return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) };
     }
@@ -518,7 +530,10 @@ const SymbolTrait = struct {
 //                                           Pair §6.6.8
 //                                           -----------
 
-const PairTrait = struct {
+//const PairTrait = struct {
+pub const Pair = struct {
+    s: guile.SCM,
+
     pub fn from(x: anytype, y: anytype) Pair { //todo: typecheck
         return .{ .s = guile.scm_cons(x.s, y.s) };
     }
@@ -537,7 +552,10 @@ const PairTrait = struct {
 //                                           -----------
 
 // todo: make generic
-const ListTrait = struct {
+// pub const ListTrait = struct {
+pub const List = struct {
+    s: guile.SCM,
+
     pub fn len(a: List) Number {
         return .{ .s = guile.scm_length(a.s) };
     }
