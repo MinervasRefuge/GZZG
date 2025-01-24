@@ -78,4 +78,14 @@ pub fn main() !void {
     }
     g.newline();
     g.display(g.String.from("It Worked!\n"));
+
+    const dbz = g.defineGSubR("div-by-zero", divideByZero);
+
+    _ = guile.scm_call_0(dbz.s);
+}
+
+fn divideByZero() !g.Number {
+    const a = try g.Number.from(10).divide(g.Number.from(0));
+
+    return a.sum(g.Number.from(2));
 }

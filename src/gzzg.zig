@@ -705,17 +705,40 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
             }
             @cVaEnd(&varg);
 
-            switch (fi.return_type.?) {
-                void => {
-                    @call(.auto, f, args);
+            const out = @call(.auto, f, args);
 
-                    return guile.SCM_UNDEFINED;
-                },
-                guile.SCM => {
-                    return @call(.auto, f, args);
+            //todo: simplify switch
+            switch (@typeInfo(fi.return_type.?)) {
+                .ErrorUnion => |eu| {
+                    if (out) |ok| {
+                        switch (eu.payload) {
+                            void => {
+                                return guile.SCM_UNDEFINED;
+                            },
+                            guile.SCM => {
+                                return ok;
+                            },
+                            else => {
+                                return ok.s; //todo: check that return is a scm wrapper
+                            },
+                        }
+                    } else |err| {
+                        //todo: format error name scm style (eg. dash over camel case)
+                        guile.scm_throw(Symbol.from(@errorName(err)).s, List.init0().s);
+                    }
                 },
                 else => {
-                    return @call(.auto, f, args).s; //todo: check that return is a scm wrapper
+                    switch (fi.return_type.?) {
+                        void => {
+                            return guile.SCM_UNDEFINED;
+                        },
+                        guile.SCM => {
+                            return out;
+                        },
+                        else => {
+                            return out.s; //todo: check that return is a scm wrapper
+                        },
+                    }
                 },
             }
         }
