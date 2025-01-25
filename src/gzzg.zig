@@ -830,7 +830,21 @@ pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: 
 // todo: remember_upto_here
 // todo: Fluids
 // todo: Hooks
-// todo: continuation barriers
+
+// todo: type check t
+pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
+    const ContinuationBarrierC = struct {
+        fn barrier(data: ?*anyopaque) callconv(.C) ?*anyopaque {
+            t.barrier(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))));
+
+            return guile.SCM_UNDEFINED;
+        }
+    };
+
+    //todo: check for null on exception and how exception should be handled
+    _ = guile.scm_c_with_continuation_barrier(ContinuationBarrierC.barrier, @constCast(@ptrCast(&captures)));
+}
+
 // todo: io
 
 //todo type check
