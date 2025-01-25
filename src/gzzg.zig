@@ -696,6 +696,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
         //todo: use options as guile optional parms
         //todo: consider implicied type conversion guile.SCM => i32 (other then Number)
         //todo: type check with `assert` for ForeignTypes and `isZ` for inbuilt?
+        //todo: return type of tuple as a scm_values returns
         fn wrapper(...) callconv(.C) guile.SCM {
             var args: Args = undefined;
 
@@ -801,15 +802,15 @@ pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: 
         const CType: type = cct;
 
         pub fn assert(a: guile.SCM) void {
-            guile.scm_assert_foreign_object_type(@This().scmType.s, a);
+            guile.scm_assert_foreign_object_type(scmType.s, a);
         }
 
         pub fn registerType() void {
-            @This().scmType = makeForeignObjectType1(Symbol.from(name), Symbol.from(slot));
+            scmType = makeForeignObjectType1(Symbol.from(name), Symbol.from(slot));
         }
 
         pub fn makeSCM(data: *cct) ft {
-            return .{ .s = guile.scm_make_foreign_object_1(@This().scmType.s, data) };
+            return .{ .s = guile.scm_make_foreign_object_1(scmType.s, data) };
         }
 
         // const mak = if (@sizeOf(cct) <= @sizeOf(*anyopaque)) i32 else i16;
@@ -821,12 +822,11 @@ pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: 
         }
 
         pub fn make(alloct: std.mem.Allocator) !*cct {
-            return alloct.create(@This().CType);
+            return alloct.create(CType);
         }
     };
 }
 
-// todo: Exceptions
 // todo: remember_upto_here
 // todo: Fluids
 // todo: Hooks
@@ -924,8 +924,3 @@ pub fn UnionSCM(scmTypes: anytype) type {
     }});
     // zig fmt: on
 }
-
-//fn check() g.UnionSCM(.{ g.List, g.Boolean }) {
-//    return .{ .a = g.List.init0() };
-//}
-//
