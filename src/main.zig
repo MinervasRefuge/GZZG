@@ -56,18 +56,18 @@ pub fn main() !void {
     _ = guile.scm_display(g.Number.from(30).sum(g.Number.from(12)).s, out_port);
     _ = guile.scm_newline(out_port);
 
-    const lst = g.List.init2(g.Number.from(5), g.Number.from(1));
+    const lst = g.List.init(.{ g.Number.from(5), g.Number.from(1) });
 
     _ = guile.scm_display(lst.s, out_port);
     _ = guile.scm_newline(out_port);
 
-    _ = guile.scm_display(guile.scm_append_x(g.List.init2(lst, g.List.init2(g.String.from("a"), g.String.from("b"))).s), out_port);
+    _ = guile.scm_display(guile.scm_append_x(g.List.init(.{ lst, g.List.init(.{ g.String.from("a"), g.String.from("b") }) }).s), out_port);
     _ = guile.scm_newline(out_port);
 
     _ = guile.scm_display(lst.s, out_port);
     _ = guile.scm_newline(out_port);
 
-    const la = g.List.init2(g.Number.from(5), g.Number.from(2));
+    const la = g.List.init(.{ g.Number.from(5), g.Number.from(2) });
     g.display(la);
     g.newline();
 

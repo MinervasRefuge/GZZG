@@ -565,41 +565,43 @@ pub const List = struct {
         return guile.scm_ilength(a.s);
     }
 
-    //pub fn init(lst: anytype) List {
-    //    //        comptime var outlst = []const guile.SCM{};
-    //    //        inline for (lst) |scm| {
-    //    //            if (!@hasField(@TypeOf(scm), "s")) {
-    //    //                @compileError("Can't pass a non scm item into the list: " ++ @typeName(@TypeOf(scm))); // todo improve comp error
-    //    //            } else {
-    //    //                outlst = outlst ++ .{scm.s};
-    //    //            }
-    //    //        }
-    //    //
-    //    //        return .{ .s = @call(.auto, guile.scm_list_n, lst ++ .{guile.SCM_UNDEFINED}) };
-    //    const outlst: [lst.len + 1]guile.SCM = undefined;
-    //
-    //    for (0..lst.len) |idx| {
-    //        outlst[idx] = lst[idx].s;
-    //    }
-    //
-    //    outlst[outlst.len] = guile.SCM_UNDEFINED;
-    //
-    //    return .{ .s = @call(.auto, guile.scm_list_n, outlst) };
-    //}
+    pub fn init(lst: anytype) List {
+        //todo: again, is there a better way to compose a tuple at comptime?
+        comptime var fields: [lst.len + 1]std.builtin.Type.StructField = undefined;
 
-    pub fn init0() List {
-        return .{ .s = guile.scm_list_n(guile.SCM_UNDEFINED) };
-    }
-
-    pub fn init1(a: anytype) List {
-        if (!@hasField(@TypeOf(a), "s")) {
-            @compileError("Can't pass a non scm item into the list: " ++ @typeName(@TypeOf(a))); // todo improve comp error
+        inline for (0..fields.len) |i| {
+            // zig fmt: off
+            fields[i] = std.builtin.Type.StructField{
+                .name = std.fmt.comptimePrint("{d}", .{i}),
+                .type = guile.SCM,
+                .default_value = null,
+                .is_comptime = false,
+                .alignment = 0
+            };
+            // zig fmt: on
         }
-        return .{ .s = guile.scm_list_1(a.s) };
-    }
 
-    pub fn init2(a: anytype, b: anytype) List {
-        return .{ .s = guile.scm_list_2(a.s, b.s) };
+        const SCMTuple = @Type(.{
+            .Struct = .{
+                .layout = .auto,
+                .fields = &fields,
+                .decls = &[_]std.builtin.Type.Declaration{},
+                .is_tuple = true,
+            },
+        });
+        var outlst: SCMTuple = undefined;
+
+        inline for (lst, 0..) |scm, idx| {
+            if (!@hasField(@TypeOf(scm), "s")) {
+                @compileError("Can't pass a non scm item into the list: " ++ @typeName(@TypeOf(scm))); // todo improve comp error
+            } else {
+                outlst[idx] = scm.s;
+            }
+        }
+
+        outlst[lst.len] = guile.SCM_UNDEFINED;
+
+        return .{ .s = @call(.auto, guile.scm_list_n, outlst) };
     }
 
     pub fn append(a: List, b: List) List {
@@ -853,7 +855,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
                         }
                     } else |err| {
                         //todo: format error name scm style (eg. dash over camel case)
-                        guile.scm_throw(Symbol.from(@errorName(err)).s, List.init0().s);
+                        guile.scm_throw(Symbol.from(@errorName(err)).s, List.init(.{}).s);
                     }
                 },
                 else => {

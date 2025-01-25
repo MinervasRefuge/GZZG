@@ -218,7 +218,7 @@ fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t,
 
 //todo rename
 pub fn getGroupsLinks(group: H5HID) g.List {
-    var l: g.List = g.List.init0();
+    var l: g.List = g.List.init(.{});
 
     _ = h5.H5Lvisit2(group.to(), h5.H5_INDEX_NAME, h5.H5_ITER_NATIVE, linkIter, @ptrCast(&l));
 
@@ -273,7 +273,7 @@ pub fn closePList(plist_hndl: H5HID) void {
 }
 
 pub fn getProperties(plist_hndl: H5HID) g.List {
-    var l = g.List.init0();
+    var l = g.List.init(.{});
 
     _ = h5.H5Piterate(plist_hndl.to(), null, propIter, @ptrCast(&l));
 
