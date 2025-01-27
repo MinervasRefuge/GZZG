@@ -319,8 +319,8 @@ pub const Number = struct {
             },
             .ComptimeFloat => guile.scm_from_double(n),
             .Float         => guile.scm_from_double(@as(f64, n)),
-            .Struct        => |st| {
-                if (st.is_tuple and n.len != 2) @compileError("Expected tuple with two numbers for Rational number");
+            .Struct        => |st| {                
+                if ((!st.is_tuple) or n.len != 2) @compileError("Expected tuple with two numbers for Rational number");
 
                 inline for (n) |elem| {
                     switch (@typeInfo(@TypeOf(elem))) {
@@ -339,7 +339,7 @@ pub const Number = struct {
 
     pub fn fromRectangular(real: f64, imaginary: f64) Number
         { return .{ .s = guile.scm_c_make_rectangular(real, imaginary) }; }
-    pub fn fromPolar(mag: f64, ang: 64) Number { return .{ .s = guile.scm_c_make_polar(mag, ang) }; }
+    pub fn fromPolar(mag: f64, ang: f64) Number { return .{ .s = guile.scm_c_make_polar(mag, ang) }; }
 
     //todo: error or optional if outside unit size?
     pub fn toZ(a: Number, comptime t: type) t {
