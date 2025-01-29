@@ -2,4 +2,13 @@
 #+OPTIONS: ^:nil
 
 * GZZG
-A exploration in Zig, with a hint of C.
+
+An attempt at a Zig wrapper for Guile C API using /libhdf5/ as a test-bed to explore the requirements.
+
+Note that this is very much 🚧 /work in progress/ 🚧.
+
+#+begin_quote
+I'm not a fruitcake. Am I lad? -- Wallace
+#+end_quote
+
+BSD-3-Clause : Copyright © 2025 Abigale Raeck.
