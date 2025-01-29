@@ -169,8 +169,11 @@ pub const guile = @cImport({
 //                     (                                                     )
 //                      "+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"
 
-//todo: consider naming allocations (since it's possible)
 pub const GuileGCAllocator = struct {
+    what: [:0]const u8,
+    // todo: consider if it was a single threaded application. could it be worth creating a stack of `whats` that can
+    // scoped to give more context?
+
     pub fn allocator(self: *GuileGCAllocator) std.mem.Allocator {
         return .{
             .ptr = self,
@@ -183,21 +186,27 @@ pub const GuileGCAllocator = struct {
     }
 
     // fn alloc(ctx: *anyopaque, n: usize, log2_ptr_align: u8, ra: usize) ?[*]u8
-    fn alloc(_: *anyopaque, n: usize, _: u8, _: usize) ?[*]u8 {
-        return @ptrCast(guile.scm_gc_malloc(n, ""));
+    fn alloc(ctx: *anyopaque, n: usize, _: u8, _: usize) ?[*]u8 {
+        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+
+        return @ptrCast(guile.scm_gc_malloc(n, self.what));
     }
 
     // fn resize(ctx: *anyopaque, buf: []u8, log2_buf_align: u8, new_len: usize, ret_addr: usize) bool
-    fn resize(_: *anyopaque, buf: []u8, _: u8, new_len: usize, _: usize) bool {
-        _ = guile.scm_gc_realloc(buf.ptr, buf.len, new_len, "");
+    fn resize(ctx: *anyopaque, buf: []u8, _: u8, new_len: usize, _: usize) bool {
+        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+
+        _ = guile.scm_gc_realloc(buf.ptr, buf.len, new_len, self.what);
         @trap();
         //todo: fix and check resize alloc op.
         //return true;
     }
 
     // fn free(ctx: *anyopaque, buf: []u8, log2_buf_align: u8, ret_addr: usize) void
-    fn free(_: *anyopaque, buf: []u8, _: u8, _: usize) void {
-        guile.scm_gc_free(buf.ptr, buf.len, "");
+    fn free(ctx: *anyopaque, buf: []u8, _: u8, _: usize) void {
+        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+
+        guile.scm_gc_free(buf.ptr, buf.len, self.what);
     }
 };
 

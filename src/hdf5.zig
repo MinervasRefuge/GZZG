@@ -28,7 +28,7 @@ pub const h5 = @cImport({
 });
 // zig fmt: on
 
-var gc = g.GuileGCAllocator{};
+var gc = g.GuileGCAllocator{ .what = "HDF5" };
 var alloc = gc.allocator();
 
 export fn init_hdf5() void {
