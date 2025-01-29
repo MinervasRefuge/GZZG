@@ -226,17 +226,19 @@ pub fn getGroupsLinks(group: H5HID) g.List {
 }
 
 pub fn getLayout(plist_id: H5HID) g.Symbol {
-    return switch (h5.H5Pget_layout(plist_id.to())) {
-        h5.H5D_COMPACT => g.Symbol.from("H5D-COMPACT"),
-        h5.H5D_CONTIGUOUS => g.Symbol.from("H5D-CONTIGUOUS"),
-        h5.H5D_CHUNKED => g.Symbol.from("H5D-CHUNKED"),
-        h5.H5D_VIRTUAL => g.Symbol.from("H5D-VIRTUAL"),
-        else => |_| {
-            //todo actual error stuff
-            return g.Symbol.from("ERROR");
-        },
-    };
+    return g.Symbol.fromEnum(@as(H5DLayout, @enumFromInt(h5.H5Pget_layout(plist_id.to()))));
 }
+
+// zig fmt: off
+const H5DLayout = RecreateEnum(h5.enum_H5D_layout_t, h5, .{
+    "H5D_LAYOUT_ERROR",
+    "H5D_COMPACT",
+    "H5D_CONTIGUOUS",
+    "H5D_CHUNKED",
+    "H5D_VIRTUAL",
+    "H5D_NLAYOUTS"
+});
+// zig fmt: off
 
 //pub fn getDataSpace(dataset_hndl: H5HID)
 
@@ -300,22 +302,7 @@ fn getType(dataset_hndl: H5HID) H5HID {
 
 // zig fmt: off
 fn getTypeClass(type_hndl: H5HID) g.Symbol {
-    return switch (h5.H5Tget_class(type_hndl.to())) {
-        h5.H5T_NO_CLASS  => g.Symbol.from("H5T_NO_CLASS"),
-        h5.H5T_INTEGER   => g.Symbol.from("H5T_INTEGER"),
-        h5.H5T_FLOAT     => g.Symbol.from("H5T_FLOAT"),
-        h5.H5T_TIME      => g.Symbol.from("H5T_TIME"),
-        h5.H5T_STRING    => g.Symbol.from("H5T_STRING"),
-        h5.H5T_BITFIELD  => g.Symbol.from("H5T_BITFIELD"),
-        h5.H5T_OPAQUE    => g.Symbol.from("H5T_OPAQUE"),
-        h5.H5T_COMPOUND  => g.Symbol.from("H5T_COMPOUND"),
-        h5.H5T_REFERENCE => g.Symbol.from("H5T_REFERENCE"),
-        h5.H5T_ENUM      => g.Symbol.from("H5T_ENUM"),
-        h5.H5T_VLEN      => g.Symbol.from("H5T_VLEN"),
-        h5.H5T_ARRAY     => g.Symbol.from("H5T_ARRAY"),
-        h5.H5T_NCLASSES  => g.Symbol.from("H5T_NCLASSES"),
-        else => g.Symbol.from("error"),
-    };
+    return g.Symbol.fromEnum(@as(H5TTypes, @enumFromInt(h5.H5Tget_class(type_hndl.to()))));
 }
 // zig fmt: on
 
@@ -324,25 +311,51 @@ fn closeType(type_hndl: H5HID) void {
 }
 //
 ////H5Tget_class => H%T_COMPOUND
-//
-//const H5T_TYPES = enum(h5.enum_H5T_class_t) {
-//        H5T_NO_CLASS = H5T_NO_CLASS,
-//        H5T_INTEGER  = H5T_INTEGER,
-//        H5T_FLOAT
-//        H5T_TIME
-//        H5T_STRING
-//        H5T_BITFIELD
-//        H5T_OPAQUE
-//        H5T_COMPOUND
-//        H5T_REFERENCE
-//        H5T_ENUM
-//        H5T_VLEN
-//        H5T_ARRAY
-//        H5T_NCLASSES
-//};
-//
-//
-//pub fn RecreateEnum(tc: type, parms: anytype) type {
-//
-//}
-//
+
+// zig fmt: off
+const H5TTypes = RecreateEnum(h5.enum_H5T_class_t, h5, .{
+    "H5T_NO_CLASS",
+    "H5T_INTEGER",
+    "H5T_FLOAT",
+    "H5T_TIME",
+    "H5T_STRING",
+    "H5T_BITFIELD",
+    "H5T_OPAQUE",
+    "H5T_COMPOUND",
+    "H5T_REFERENCE",
+    "H5T_ENUM",
+    "H5T_VLEN",
+    "H5T_ARRAY",
+    "H5T_NCLASSES"
+});
+
+// zig fmt: on
+
+pub fn RecreateEnum(tag_type: type, from: anytype, parms: anytype) type {
+    // zig fmt: off
+    const EnumField = std.builtin.Type.EnumField;
+    
+    comptime var fields: [parms.len]EnumField = undefined;
+    
+    // for a tag "H5T_NCLASSES" we want to chop off "H5T_" (since it's just a /c namespace/) and keep the rest.
+    inline for (0..parms.len) |i| {
+        var it = std.mem.tokenizeAny(u8, parms[i], "_");
+
+        _ = it.next();
+        
+        fields[i] = EnumField{
+            .name = std.fmt.comptimePrint("{s}", .{it.rest()}),
+            .value = @field(from, parms[i])
+        };
+    }
+    
+    return @Type(.{
+        .Enum = .{
+            .tag_type = tag_type,
+            .fields = &fields,
+            .decls = &[_]std.builtin.Type.Declaration{},
+            .is_exhaustive = true
+        }
+    });
+    // zig fmt: on
+}

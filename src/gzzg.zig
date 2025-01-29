@@ -710,6 +710,30 @@ pub const Symbol = struct {
     pub fn fromCStr(s: [:0]const u8) Symbol {
         return .{ .s = guile.scm_from_utf8_symbol(s.ptr) };
     }
+
+    pub fn fromEnum(tag: anytype) Symbol {
+        //todo: complete vs uncomplete enum?
+        switch (@typeInfo(@TypeOf(tag))) {
+            .Enum => {},
+            else => @compileError("Expected enum varient"),
+        }
+
+        switch (tag) {
+            inline else => |t| {
+                const tns = @tagName(t);
+                var str: [tns.len:0]u8 = undefined;
+
+                inline for (tns, 0..) |c, i| {
+                    str[i] = if (c == '_') '-' else c;
+                }
+
+                //loops don't cover the sentinel byte nor does the length. so +1
+                str[tns.len] = 0;
+
+                return Symbol.fromCStr(&str);
+            },
+        }
+    }
 };
 
 //                                         --------------
