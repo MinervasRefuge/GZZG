@@ -31,60 +31,66 @@ pub const h5 = @cImport({
 var gc = g.GuileGCAllocator{ .what = "HDF5" };
 var alloc = gc.allocator();
 
-export fn init_hdf5() void {
-    _ = g.defineModule("hdf5", init_hdf5_module);
+export fn initHDF5() void {
+    _ = g.defineModule("hdf5", initHDF5Module);
 }
 
 //todo is H5HID a HNDL or just and ID?
-fn init_hdf5_module() void {
-    _ = g.defineGSubRAndExport("open-h5", openH5);
-    _ = g.defineGSubRAndExport("close-h5", closeH5);
-
-    _ = g.defineGSubRAndExport("open-group", openH5Group);
-    _ = g.defineGSubRAndExport("close-group", closeH5Group);
-
-    _ = g.defineGSubRAndExport("group-links", getGroupsLinks);
-
-    _ = g.defineGSubRAndExport("open-dataset", openH5Dataset);
-    _ = g.defineGSubRAndExport("close-dataset", closeH5Dataset);
-
-    _ = g.defineGSubRAndExport("get-layout", getLayout);
-    _ = g.defineGSubRAndExport("read-dataset", readDataset);
-
-    _ = g.defineGSubRAndExport("get-dataset-dataspace", getDatasetSpace);
-    _ = g.defineGSubRAndExport("close-dataspace", closeDataSpace);
-
-    _ = g.defineGSubRAndExport("get-dataset-plist", getDatasetPList);
-    _ = g.defineGSubRAndExport("close-plist", closePList);
-    _ = g.defineGSubRAndExport("get-properties", getProperties);
-
-    _ = g.defineGSubRAndExport("get-type", getType);
-    _ = g.defineGSubRAndExport("get-type-class", getTypeClass);
+fn initHDF5Module() void {
+    // zig fmt: off
+    _ = g.defineGSubRAndExportBulk(.{
+        .{ .name = "open-h5",  .func = openH5,  .doc = "openH5(file: String, _: List) !H5HID" },
+        .{ .name = "close-h5", .func = closeH5, .doc = "closeH5(hdl: H5HID) void"},
+        
+        .{ .name = "open-group",  .func = openH5Group,    .doc = "openH5Group(h5Hndl: H5HID, path: String) !H5HID"},
+        .{ .name = "close-group", .func = closeH5Group,   .doc = "closeH5Group(h5GroupHndl: H5HID) void" },
+            
+        .{ .name = "group-links", .func = getGroupsLinks, .doc = "getGroupsLinks(group: H5HID) List"},
+            
+        .{ .name = "open-dataset",  .func = openH5Dataset,  .doc = "openH5Dataset(hndl: H5HID, path: String) !H5HID"},
+        .{ .name = "close-dataset", .func = closeH5Dataset, .doc = "closeH5Dataset(hndl: H5HID) void"},
+            
+        .{ .name = "get-layout",   .func = getLayout,   .doc = "getLayout(plist_id: H5HID) Symbol"},
+        .{ .name = "read-dataset", .func = readDataset, .doc = "readDataset(dataset_hndl: H5HID) void"},
+    
+        .{ .name = "get-dataset-dataspace", .func = getDatasetSpace, .doc = "getDatasetSpace(dataset_hndl: H5HID) !H5HID"},
+        .{ .name = "close-dataspace",       .func = closeDataSpace,   .doc = "closeDataSpace(dataspace_hndl: H5HID) void"},
+    
+        .{ .name = "get-dataset-plist", .func = getDatasetPList, .doc = "getDatasetPList(dataset_hndl: H5HID) H5HID"},
+        .{ .name = "close-plist",       .func = closePList,      .doc = "closePList(plist_hndl: H5HID) void"}, 
+        .{ .name = "get-properties",    .func = getProperties,   .doc = "getProperties(plist_hndl: H5HID) List"},
+    
+        .{ .name = "get-type",       .func = getType,      .doc = "getType(dataset_hndl: H5HID) !H5HID"},
+        .{ .name = "get-type-class", .func = getTypeClass, .doc = "getTypeClass(type_hndl: H5HID) Symbol"},
+        .{ .name = "close-type",     .func = closeType,    .doc = "closeType(type_hndl: H5HID) void"},
+    });
+    // zig fmt: on
 
     H5HID.register();
     H5GInfo.register();
 
     H5LInfo2.register();
-
-    // Datatypes (H5T)
-    _ = g.defineGSubRAndExport("close-type", closeType);
 }
 
-pub fn openH5(file: g.String, _: g.List) H5HID {
+pub fn openH5(file: g.String, _: g.List) !H5HID {
     //    H5F_ACC_RDWR
     //        H5F_ACC_RDONLY
 
-    const v = file.toCStr(alloc) catch @trap();
+    const v = try file.toCStr(alloc);
     defer alloc.free(v);
-    return H5HID.init(h5.H5Fopen(v, 0, h5.H5P_DEFAULT));
+
+    return switch (h5.H5Fopen(v, 0, h5.H5P_DEFAULT)) {
+        h5.H5I_INVALID_HID => error.InvalidHID,
+        else => |r| H5HID.init(r),
+    };
 }
 
 pub fn closeH5(hdl: H5HID) void {
     _ = h5.H5Fclose(hdl.to());
 }
 
-pub fn openH5Group(h5Hndl: H5HID, path: g.String) H5HID { //todo H5HID or #f
-    const v = path.toCStr(alloc) catch @trap();
+pub fn openH5Group(h5Hndl: H5HID, path: g.String) !H5HID { //todo H5HID or #f
+    const v = try path.toCStr(alloc);
     defer alloc.free(v);
 
     return H5HID.init(h5.H5Gopen1(h5Hndl.to(), v));
@@ -94,8 +100,11 @@ pub fn closeH5Group(h5GroupHndl: H5HID) void {
     _ = h5.H5Gclose(h5GroupHndl.to());
 }
 
-pub fn openH5Dataset(hndl: H5HID, path: g.String) H5HID {
-    return H5HID.init(h5.H5Dopen2(hndl.to(), path.toCStr(alloc) catch @trap(), h5.H5P_DEFAULT));
+pub fn openH5Dataset(hndl: H5HID, path: g.String) !H5HID {
+    return switch (h5.H5Dopen2(hndl.to(), try path.toCStr(alloc), h5.H5P_DEFAULT)) {
+        h5.H5I_INVALID_HID => error.InvalidHID,
+        else => |r| H5HID.init(r),
+    };
 }
 
 pub fn closeH5Dataset(hndl: H5HID) void {
@@ -138,8 +147,8 @@ const H5GInfo = g.SCMWrapper(struct {
     pub fn register() void {
         @This().registerType();
 
-        _ = g.defineGSubRAndExport("h5-group-info", get);
-        _ = g.defineGSubRAndExport("h5-group-info->string", toString);
+        _ = g.defineGSubRAndExport("h5-group-info", get, "get(groupHndl: H5HID) H5GInfo");
+        _ = g.defineGSubRAndExport("h5-group-info->string", toString, "toString(a: H5GInfo) String");
     }
 
     pub fn get(groupHndl: H5HID) H5GInfo {
@@ -177,7 +186,7 @@ const H5LInfo2 = g.SCMWrapper(struct {
     pub fn register() void {
         @This().registerType();
 
-        _ = g.defineGSubRAndExport("link-info2->string", toString);
+        _ = g.defineGSubRAndExport("link-info2->string", toString, "toString(a: H5LInfo2) String");
     }
 
     pub fn init(ic: *const h5.H5L_info2_t) H5LInfo2 {
@@ -256,10 +265,11 @@ pub fn readDataset(dataset_hndl: H5HID) void {
     //allocstd.free(buf);
 }
 
-pub fn getDatasetSpace(dataset_hndl: H5HID) H5HID {
-    const out = h5.H5Dget_space(dataset_hndl.to());
-    // can return H5I_INVALID_HID
-    return H5HID.init(out);
+pub fn getDatasetSpace(dataset_hndl: H5HID) !H5HID {
+    return switch (h5.H5Dget_space(dataset_hndl.to())) {
+        h5.H5I_INVALID_HID => error.InvalidHID,
+        else => |r| H5HID.init(r)
+    };
 }
 
 pub fn closeDataSpace(dataspace_hndl: H5HID) void {
@@ -296,8 +306,11 @@ fn propIter(_: h5.hid_t, name: [*c]const u8, iter_data: ?*anyopaque) callconv(.C
     return 0;
 }
 
-fn getType(dataset_hndl: H5HID) H5HID {
-    return H5HID.init(h5.H5Dget_type(dataset_hndl.to()));
+fn getType(dataset_hndl: H5HID) !H5HID {
+    return switch (h5.H5Dget_type(dataset_hndl.to())) {
+        h5.H5I_INVALID_HID => error.InvalidHID,
+        else => |r| H5HID.init(r)
+    };
 }
 
 // zig fmt: off

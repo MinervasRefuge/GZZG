@@ -1098,21 +1098,40 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
     }.wrapper;
 }
 
-pub fn defineGSubR(name: [:0]const u8, comptime ff: anytype) Procedure {
+pub fn defineGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
     const ft = switch (@typeInfo(@TypeOf(ff))) {
         .Fn => |fs| fs,
         else => @compileError("Bad fn"), // todo: improve error
     };
 
-    return .{ .s = guile.scm_c_define_gsubr(name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(wrapZig(ff)))) };
+    const gp = guile.scm_c_define_gsubr(name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(wrapZig(ff))));
+
+    //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
+    if (documentation != null) {
+        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.from(documentation.?).s);
+    }
+
+    return .{ .s = gp };
 }
 
-pub fn defineGSubRAndExport(name: [:0]const u8, comptime ff: anytype) Procedure {
-    const scmf = defineGSubR(name, ff);
+pub fn defineGSubRAndExport(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
+    const scmf = defineGSubR(name, ff, documentation);
 
     guile.scm_c_export(name, guile.NULL);
 
     return scmf;
+}
+
+pub fn defineGSubRAndExportBulk(comptime gsubr_outlines: anytype) [gsubr_outlines.len]Procedure {
+    var out: [gsubr_outlines.len]Procedure = undefined;
+
+    inline for (gsubr_outlines, 0..) |definition, idx| {
+        const doc = if (@hasField(@TypeOf(definition), "doc")) definition.doc else null;
+
+        out[idx] = defineGSubRAndExport(definition.name, definition.func, doc);
+    }
+
+    return out;
 }
 
 //                                      --------------------

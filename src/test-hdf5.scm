@@ -1,6 +1,6 @@
 ;; BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 
-(load-extension "zig-out/lib/libgzzg-hdf5.so" "init_hdf5")
+(load-extension "zig-out/lib/libgzzg-hdf5.so" "initHDF5")
 
 (define-module (hdf5-test)
   #:use-module (ice-9 pretty-print)
