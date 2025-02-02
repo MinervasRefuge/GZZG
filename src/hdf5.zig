@@ -119,7 +119,9 @@ pub fn closeH5Dataset(hndl: H5HID) void {
 //
 //
 
-const H5HID = g.SCMWrapper(struct {
+const H5HID = struct {
+    s: guile.SCM,
+
     pub fn register() void {
         @This().registerType();
     }
@@ -146,9 +148,11 @@ const H5HID = g.SCMWrapper(struct {
     }
 
     usingnamespace g.SetupFT(H5HID, h5.hid_t, "H5HID", "hndl");
-});
+};
 
-const H5GInfo = g.SCMWrapper(struct {
+const H5GInfo = struct {
+    s: guile.SCM,
+
     pub fn register() void {
         @This().registerType();
 
@@ -182,12 +186,14 @@ const H5GInfo = g.SCMWrapper(struct {
     }
 
     usingnamespace g.SetupFT(H5GInfo, h5.H5G_info_t, "H5GInfo", "info");
-});
+};
 
 //const sas: h5.H5L_iterate2_t = undefined;
 // pub const H5L_iterate2_t = (group:h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t, op_data:?*anyopaque) callconv(.C) h5.herr_t
 
-const H5LInfo2 = g.SCMWrapper(struct {
+const H5LInfo2 = struct {
+    s: guile.SCM,
+
     pub fn register() void {
         @This().registerType();
 
@@ -218,7 +224,7 @@ const H5LInfo2 = g.SCMWrapper(struct {
     }
 
     usingnamespace g.SetupFT(H5LInfo2, h5.H5L_info2_t, "H5LInfo2", "info");
-});
+};
 
 fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t, op_data: ?*anyopaque) callconv(.C) h5.herr_t {
     _ = group;
@@ -389,7 +395,9 @@ const H5OType = RecreateEnum(h5.enum_H5O_type_t, h5, .{
 });
 // zig fmt: on
 
-const H5OInfo2 = g.SCMWrapper(struct {
+const H5OInfo2 = struct {
+    s: guile.SCM,
+
     pub fn register() void {
         @This().registerType();
 
@@ -433,7 +441,7 @@ const H5OInfo2 = g.SCMWrapper(struct {
     }
 
     usingnamespace g.SetupFT(H5OInfo2, h5.H5O_info2_t, "H5OInfo2", "info");
-});
+};
 
 // zig fmt: off
 fn iGetType(id: H5HID) g.Symbol {
