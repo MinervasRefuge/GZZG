@@ -63,6 +63,10 @@ fn initHDF5Module() void {
         .{ .name = "get-type",       .func = getType,      .doc = "getType(dataset_hndl: H5HID) !H5HID"},
         .{ .name = "get-type-class", .func = getTypeClass, .doc = "getTypeClass(type_hndl: H5HID) Symbol"},
         .{ .name = "close-type",     .func = closeType,    .doc = "closeType(type_hndl: H5HID) void"},
+
+        .{ .name = "i-get-type", .func = iGetType},
+        .{ .name = "open-object", .func = openObject },
+        .{ .name = "close-object", .func = closeObject},
     });
     // zig fmt: on
 
@@ -70,6 +74,7 @@ fn initHDF5Module() void {
     H5GInfo.register();
 
     H5LInfo2.register();
+    H5OInfo2.register();
 }
 
 pub fn openH5(file: g.String, _: g.List) !H5HID {
@@ -371,4 +376,101 @@ pub fn RecreateEnum(tag_type: type, from: anytype, parms: anytype) type {
         }
     });
     // zig fmt: on
+}
+
+// zig fmt: off
+const H5OType = RecreateEnum(h5.enum_H5O_type_t, h5, .{
+    "H5O_TYPE_UNKNOWN",
+    "H5O_TYPE_GROUP",
+    "H5O_TYPE_DATASET",
+    "H5O_TYPE_NAMED_DATATYPE",
+    "H5O_TYPE_MAP",
+    "H5O_TYPE_NTYPES"
+});
+// zig fmt: on
+
+const H5OInfo2 = g.SCMWrapper(struct {
+    pub fn register() void {
+        @This().registerType();
+
+        _ = g.defineGSubRAndExport("object-info2->string", toString, "toString(a: H5OInfo2) String");
+        _ = g.defineGSubRAndExport("object-info2->otype", getOType, "getOType(a: H5OInfo2) Symbol");
+        _ = g.defineGSubRAndExport("make-object-info2", getH5OInfo2, "getH5OInfo2(loc_id: H5HID) H5OInfo2");
+    }
+
+    pub fn init(ic: *const h5.H5O_info2_t) H5OInfo2 {
+        const info = @This().make(alloc) catch @trap();
+        const sz = @sizeOf(h5.H5O_info2_t);
+
+        @memcpy(@as(*[sz]u8, @ptrCast(info)), std.mem.asBytes(ic)[0..sz]);
+
+        return @This().makeSCM(info);
+    }
+
+    pub fn toString(_: H5OInfo2) g.String {
+        //     const i: *h5.H5O_info2_t = @This().retrieve(a).?;
+
+        //const s = std.json.stringifyAlloc(alloc, i, .{}) catch @trap();
+
+        return g.String.from("FIX ME");
+    }
+
+    pub fn getOType(a: H5OInfo2) g.Symbol {
+        const b = @This().retrieve(a).?;
+
+        return g.Symbol.fromEnum(@as(H5OType, @enumFromInt(b.type)));
+    }
+
+    fn getH5OInfo2(loc_id: H5HID) H5OInfo2 {
+        var data: h5.H5O_info2_t = .{};
+
+        // todo: deal with return data
+        _ = h5.H5Oget_info3(loc_id.to(), &data, h5.H5O_INFO_ALL);
+
+        // todo: Double handling data using the constructor. Better would be init empty then refer to contents.
+
+        return init(&data);
+    }
+
+    usingnamespace g.SetupFT(H5OInfo2, h5.H5O_info2_t, "H5OInfo2", "info");
+});
+
+// zig fmt: off
+fn iGetType(id: H5HID) g.Symbol {
+    const b = h5.H5Iget_type(id.to());
+    
+    return g.Symbol.fromEnum(@as(H5IType, @enumFromInt(b)));
+}
+
+const H5IType = RecreateEnum(h5.enum_H5I_type_t, h5, .{
+    "H5I_UNINIT",
+    "H5I_BADID",
+    "H5I_FILE",
+    "H5I_GROUP",
+    "H5I_DATATYPE",
+    "H5I_DATASPACE",
+    "H5I_DATASET",
+    "H5I_MAP",
+    "H5I_ATTR",
+    "H5I_VFL",
+    "H5I_VOL",
+    "H5I_GENPROP_CLS",
+    "H5I_GENPROP_LST",
+    "H5I_ERROR_CLASS",
+    "H5I_ERROR_MSG",
+    "H5I_ERROR_STACK",
+    "H5I_SPACE_SEL_ITER",
+    "H5I_EVENTSET",
+    "H5I_NTYPES"
+});
+
+fn openObject(hndl: H5HID, path: g.String) !H5HID {
+    return switch (h5.H5Oopen(hndl.to(), try path.toCStr(alloc), h5.H5P_DEFAULT)) {
+        h5.H5I_INVALID_HID => error.InvalidHID,
+        else => |r| H5HID.init(r),
+    };
+}
+
+pub fn closeObject(hndl: H5HID) void {
+    _ = h5.H5Oclose(hndl.to());
 }
