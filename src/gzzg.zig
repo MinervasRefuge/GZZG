@@ -58,7 +58,7 @@ pub const GuileGCAllocator = struct {
 
 // §6.6 Data Types
 // zig fmt: off
-pub const Any        = struct { s: guile.SCM };
+//pub const Any        = struct { s: guile.SCM };
 
 pub const Boolean    = @import("boolean.zig").Boolean;
 pub const Number     = @import("number.zig").Number;
@@ -97,7 +97,42 @@ pub const ForeignType = struct { s: guile.SCM };
 // append `Z` if function returns zig values.
 // append `X` for mutation functions (more-so based on scm function naming)
 // append `E` if a known exception can be raised but isn't capture by the function
-// CONST => from => to => is => other
+// CONST => from => to => is => lowerZ => other
+
+pub fn assertSCMType(comptime t: type) void {
+    switch (@typeInfo(t)) {
+        .Struct => |s| {
+            if (s.is_tuple) @compileError("SCMType " ++ @typeName(t) ++ " can't be a tuple");
+
+            for (s.fields) |sf| {
+                if (std.mem.eql(u8, sf.name, "s") and sf.type == guile.SCM) return;
+            }
+
+            @compileError("SCMType " ++ @typeName(t) ++ " missing valid SCM field");
+        },
+        else => @compileError("SCMType not a struct"),
+    }
+}
+
+pub const Any = struct {
+    s: guile.SCM,
+
+    // zig fmt: off
+    pub fn is (_: guile.SCM) Boolean { return Boolean.TRUE; } // what about `guile.SCM_UNDEFINED`?
+    pub fn isZ(_: guile.SCM) bool    { return true; }
+
+    pub fn lowerZ(a: Any) Any { return a; }
+    // zig fmt: on
+
+    pub fn raiseZ(a: Any, SCMType: type) ?SCMType {
+        assertSCMType(SCMType);
+
+        if (!@hasDecl(SCMType, "isZ"))
+            @compileError("Missing `isZ` for type narrowing (`raise`) on " ++ @typeName(SCMType));
+
+        return if (type.isZ(a.s)) .{ .s = a.s } else null;
+    }
+};
 
 //                                       ------------------
 //                                       Bit Vector §6.6.11
@@ -145,7 +180,6 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
     //todo: is there a better way of building a tuple for the `@call`?
     comptime var fields: [fi.params.len]std.builtin.Type.StructField = undefined;
 
-    //todo: type check fn params so they are scm wrappers
     inline for (fi.params, 0..) |p, i| {
         // zig fmt: off
         fields[i] = std.builtin.Type.StructField{
@@ -170,17 +204,37 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
     return struct {
         //todo: use options as guile optional parms
         //todo: consider implicied type conversion guile.SCM => i32 (other then Number)
-        //todo: type check with `assert` for ForeignTypes and `isZ` for inbuilt?
         //todo: return type of tuple as a scm_values returns
         fn wrapper(...) callconv(.C) guile.SCM {
             var args: Args = undefined;
 
-            var varg = @cVaStart();
-            inline for (fi.params, 0..) |p, i| {
-                args[i] = @as(p.type.?, .{ .s = @cVaArg(&varg, guile.SCM) });
-            }
-            @cVaEnd(&varg);
+            {
+                var varg = @cVaStart();
+                defer @cVaEnd(&varg);
 
+                inline for (fi.params, 0..) |p, i| {
+                    const pt = p.type.?;
+                    const sva = @cVaArg(&varg, guile.SCM);
+
+                    if (@hasDecl(pt, "isZ")) { // Common wrapped types
+                        if (pt.isZ(sva)) {
+                            args[i] = .{ .s = sva };
+                        } else {
+                            //todo: We can throw a better exception here...
+                            guile.scm_throw(Symbol.from("type-parameter").s, List.init(.{ String.from("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
+                        }
+                    } else if (@hasDecl(pt, "assert")) { // Foreign Types
+                        pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
+                        args[i] = .{ .s = sva };
+                    } else if (p.type.? == guile.SCM) {
+                        args[i] = sva;
+                    } else {
+                        @compileError("Unknown parm type for guile wrapper function: " ++ @typeName(pt) ++ " Did you forget to make `pub` for `usingnamespace gzzg.SetupFT`?");
+                    }
+                }
+            }
+
+            //todo: consider using `.always_inline`?
             const out = @call(.auto, f, args);
 
             //todo: simplify switch

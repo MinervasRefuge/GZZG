@@ -3,6 +3,7 @@
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const Any = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number = gzzg.Number;
 const Symbol = gzzg.Symbol;
@@ -50,12 +51,12 @@ pub const ByteVector = struct {
     // utf32->string
 
     // zig fmt: off
-    pub fn is(a: ByteVector) Boolean { return .{ .s = guile.scm_bytevector_p(a.s) }; }
-    pub fn isZ(a: ByteVector) bool { return guile.scm_is_bytevector(a.s) != 0; }
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_bytevector_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_bytevector(a) != 0; }
 
-    pub fn init(length: usize) ByteVector {
-        return .{ .s = guile.scm_c_make_bytevector(length) };
-    }
+    pub fn lowerZ(a: ByteVector) Any { return .{ .s = a.s }; }
+
+    pub fn init(length: usize) ByteVector { return .{ .s = guile.scm_c_make_bytevector(length) }; }
 
     pub fn nativeEndianness() Symbol { return .{ .s = guile.scm_native_endianness() }; }
     

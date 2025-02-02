@@ -147,7 +147,7 @@ const H5HID = struct {
         //}
     }
 
-    usingnamespace g.SetupFT(H5HID, h5.hid_t, "H5HID", "hndl");
+    pub usingnamespace g.SetupFT(H5HID, h5.hid_t, "H5HID", "hndl");
 };
 
 const H5GInfo = struct {
@@ -185,7 +185,7 @@ const H5GInfo = struct {
         return g.String.from(s);
     }
 
-    usingnamespace g.SetupFT(H5GInfo, h5.H5G_info_t, "H5GInfo", "info");
+    pub usingnamespace g.SetupFT(H5GInfo, h5.H5G_info_t, "H5GInfo", "info");
 };
 
 //const sas: h5.H5L_iterate2_t = undefined;
@@ -223,7 +223,7 @@ const H5LInfo2 = struct {
         return g.String.from(s);
     }
 
-    usingnamespace g.SetupFT(H5LInfo2, h5.H5L_info2_t, "H5LInfo2", "info");
+    pub usingnamespace g.SetupFT(H5LInfo2, h5.H5L_info2_t, "H5LInfo2", "info");
 };
 
 fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t, op_data: ?*anyopaque) callconv(.C) h5.herr_t {
@@ -440,7 +440,7 @@ const H5OInfo2 = struct {
         return init(&data);
     }
 
-    usingnamespace g.SetupFT(H5OInfo2, h5.H5O_info2_t, "H5OInfo2", "info");
+    pub usingnamespace g.SetupFT(H5OInfo2, h5.H5O_info2_t, "H5OInfo2", "info");
 };
 
 // zig fmt: off

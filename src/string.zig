@@ -5,6 +5,7 @@ const std = @import("std");
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const Any = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number = gzzg.Number;
 
@@ -12,7 +13,17 @@ const Number = gzzg.Number;
 //                                        Character §6.6.3
 //                                        ----------------
 
-pub const Character = struct { s: guile.SCM };
+pub const Character = struct {
+    s: guile.SCM,
+
+    // zig fmt: off
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_char_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); } // where's the companion fn?
+        
+    pub fn lowerZ(a: Character) Any { return .{ .s = a.s }; }
+
+    // zig fmt: on
+};
 
 //                                      --------------------
 //                                      Character Set §6.6.4
@@ -26,13 +37,10 @@ pub const Character = struct { s: guile.SCM };
 pub const String = struct {
     s: guile.SCM,
 
-    pub fn from(s: []const u8) String {
-        return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) };
-    }
-
-    pub fn fromCStr(s: [:0]const u8) String {
-        return .{ .s = guile.scm_from_utf8_string(s.ptr) };
-    }
+    // zig fmt: off
+    pub fn from    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
+    pub fn fromCStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
+    // zig fmt: on
 
     pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
         const l = a.lenZ();
@@ -55,21 +63,16 @@ pub const String = struct {
 
     // string->number
 
-    pub fn is(a: String) Boolean {
-        return .{ .s = guile.scm_string_p(a.s) };
-    }
+    // zig fmt: off
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_string_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_string(a) != 0; }
 
-    pub fn isZ(a: String) bool {
-        return guile.scm_is_string(a.s) != 0;
-    }
+    pub fn lowerZ(a: String) Any { return .{ .s = a.s }; }
 
-    pub fn len(a: String) Number {
-        return .{ .s = guile.scm_string_length(a.s) };
-    }
+    pub fn len (a: String) Number { return .{ .s = guile.scm_string_length(a.s) }; }
+    pub fn lenZ(a: String) usize  { return guile.scm_c_string_length(a.s); }
 
-    pub fn lenZ(a: String) usize {
-        return guile.scm_c_string_length(a.s);
-    }
+   // zig fmt: on
 };
 
 //                                          -------------
@@ -79,13 +82,15 @@ pub const String = struct {
 pub const Symbol = struct {
     s: guile.SCM,
 
-    pub fn from(s: []const u8) Symbol {
-        return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) };
-    }
+    // zig fmt: off
+    pub fn from    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
+    pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
-    pub fn fromCStr(s: [:0]const u8) Symbol {
-        return .{ .s = guile.scm_from_utf8_symbol(s.ptr) };
-    }
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_symbol_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; } 
+
+    pub fn lowerZ(a: Symbol) Any { return .{ .s = a.s }; }
+    // zig fmt: on
 
     pub fn fromEnum(tag: anytype) Symbol {
         //todo: complete vs uncomplete enum?

@@ -5,6 +5,7 @@ const std = @import("std");
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const Any = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number = gzzg.Number;
 
@@ -12,21 +13,17 @@ const Number = gzzg.Number;
 //                                           Pair §6.6.8
 //                                           -----------
 
-//const PairTrait = struct {
 pub const Pair = struct {
     s: guile.SCM,
 
-    pub fn from(x: anytype, y: anytype) Pair { //todo: typecheck
-        return .{ .s = guile.scm_cons(x.s, y.s) };
-    }
+    // zig fmt: off
+    // todo: typecheck
+    pub fn from(x: anytype, y: anytype) Pair { return .{ .s = guile.scm_cons(x.s, y.s) }; }
 
-    pub fn isPair(a: Pair) Boolean {
-        return .{ .s = guile.scm_pair_p(a.s) };
-    }
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_pair_p(a.s) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
 
-    pub fn isPairZ(a: Pair) bool {
-        return guile.scm_is_pair(a.s) != 0;
-    }
+    pub fn lowerZ(a: Pair) Any { return .{ .s = a.s }; }
 };
 
 //                                           -----------
@@ -34,17 +31,18 @@ pub const Pair = struct {
 //                                           -----------
 
 // todo: make generic
-// pub const ListTrait = struct {
 pub const List = struct {
     s: guile.SCM,
 
-    pub fn len(a: List) Number {
-        return .{ .s = guile.scm_length(a.s) };
-    }
+    // zig fmt: off
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_list_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }  // where's the companion fn?
 
-    pub fn lenZ(a: List) c_long {
-        return guile.scm_ilength(a.s);
-    }
+    pub fn lowerZ(a: List) Any { return .{ .s = a.s }; }
+    
+    pub fn len (a: List) Number { return .{ .s = guile.scm_length(a.s) }; }
+    pub fn lenZ(a: List) c_long { return guile.scm_ilength(a.s); }
+    // zig fmt: on
 
     pub fn init(lst: anytype) List {
         //todo: again, is there a better way to compose a tuple at comptime?

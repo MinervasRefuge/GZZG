@@ -3,6 +3,7 @@
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const Any = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const String = gzzg.String;
 const Symbol = gzzg.Symbol;
@@ -169,7 +170,7 @@ const Vector = gzzg.Vector;
 pub const Number = struct {
     s: guile.SCM,
 
-    //const NumberTrait = struct { //todo: is it worth swtching on bit ranges or only standard bit sizes?
+    //todo: is it worth swtching on bit ranges or only standard bit sizes?
     // zig fmt: off
     pub fn from(n: anytype) Number {
         const scm = switch (@typeInfo(@TypeOf(n))) {
@@ -252,8 +253,8 @@ pub const Number = struct {
 
     // scm_c_locale_stringn_to_number ?
 
-    pub fn is(a: Number) Boolean { return .{ .s = guile.scm_number_p (a.s) }; }
-    pub fn isZ(a: Number) bool   { return .{ .s = guile.scm_is_number(a.s) }; }
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_number_p (a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_number(a) != 0; }
 
     pub fn isExactInteger(a: Number) Boolean { return .{ .s = guile.scm_exact_integer_p(a.s) }; }
     pub fn isInteger     (a: Number) Boolean { return .{ .s = guile.scm_integer_p      (a.s) }; }
@@ -280,6 +281,8 @@ pub const Number = struct {
     pub fn isZero    (a: Number) Boolean { return .{ .s = guile.scm_zero_p(a.s) }; }
     pub fn isPositive(a: Number) Boolean { return .{ .s = guile.scm_positive_p(a.s) }; }
     pub fn isNegative(a: Number) Boolean { return .{ .s = guile.scm_negative_p(a.s) }; }
+
+    pub fn lowerZ(a: Number) Any { return .{ .s = a.s }; }
     
     //
     //
