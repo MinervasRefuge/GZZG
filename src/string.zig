@@ -19,8 +19,21 @@ pub const Character = struct {
     // zig fmt: off
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_char_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); } // where's the companion fn?
+
+    pub fn isAlphabetic(a: Character) Boolean { return .{ .s = guile.scm_char_alphabetic_p(a.s) }; }
+    pub fn isNumeric   (a: Character) Boolean { return .{ .s = guile.scm_char_numeric_p(a.s) }; }
+    pub fn isWhitespace(a: Character) Boolean { return .{ .s = guile.scm_char_whitespace_p(a.s) }; }
+    pub fn isUpperCase (a: Character) Boolean { return .{ .s = guile.scm_char_upper_case_p(a.s) }; }
+    pub fn isLowerCase (a: Character) Boolean { return .{ .s = guile.scm_char_lower_case_p(a.s) }; }
+    pub fn isBoth      (a: Character) Boolean { return .{ .s = guile.scm_char_is_both_p(a.s) }; }
         
     pub fn lowerZ(a: Character) Any { return .{ .s = a.s }; }
+
+    pub fn generalCategory(a: Character) gzzg.UnionSCM(.{Symbol, Boolean}) {
+        const gcat = guile.scm_char_general_category(a.s);
+        
+        return if (Boolean.isZ(gcat)) .{ .b = Boolean.FALSE } else .{ .a = .{ .s = gcat } };
+    }
 
     // zig fmt: on
 };
