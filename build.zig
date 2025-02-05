@@ -43,6 +43,15 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimise,
     });
 
+    const exe_sieve_example = b.addExecutable(.{
+        .name = "sieve-example",
+        .root_source_file = b.path("examples/sieve_of_Eratosthenes.zig"),
+        .target = target,
+        .optimize = optimise,
+    });
+
+    exe_sieve_example.root_module.addImport("gzzg", module_gzzg);
+
     const lib_gzzg_hdf5 = b.addSharedLibrary(.{
         .name = "gzzg-hdf5",
         .root_source_file = b.path("src/hdf5.zig"),
@@ -60,6 +69,7 @@ pub fn build(b: *std.Build) !void {
    
 
     b.installArtifact(exe_gzzg);
+    b.installArtifact(exe_sieve_example);
     b.installArtifact(exe_snappy);
     b.installArtifact(lib_gzzg_hdf5);
 

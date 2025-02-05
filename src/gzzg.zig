@@ -125,12 +125,13 @@ pub const Any = struct {
     // zig fmt: on
 
     pub fn raiseZ(a: Any, SCMType: type) ?SCMType {
-        assertSCMType(SCMType);
+        //todo: fix
+        //assertSCMType(SCMType);
 
         if (!@hasDecl(SCMType, "isZ"))
             @compileError("Missing `isZ` for type narrowing (`raise`) on " ++ @typeName(SCMType));
 
-        return if (type.isZ(a.s)) .{ .s = a.s } else null;
+        return if (SCMType.isZ(a.s)) .{ .s = a.s } else null;
     }
 };
 
@@ -309,6 +310,18 @@ pub fn defineGSubRAndExportBulk(comptime gsubr_outlines: anytype) [gsubr_outline
     }
 
     return out;
+}
+
+// todo: allow return type check
+// todo: exception handling from invalid args
+pub fn call(proc: Procedure, args: anytype) Any {
+    var scmArgs: [args.len]guile.SCM = undefined;
+
+    inline for (0..args.len) |i| {
+        scmArgs[i] = args[i].s;
+    }
+
+    return .{ .s = guile.scm_call_n(proc.s, &scmArgs, scmArgs.len) };
 }
 
 //                                      --------------------

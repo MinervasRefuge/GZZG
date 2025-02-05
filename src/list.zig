@@ -84,15 +84,20 @@ pub const List = struct {
     }
 
     pub fn append(a: List, b: List) List {
-        return .{ .s = guile.scm_append(List.init2(a, b).s) };
+        return .{ .s = guile.scm_append(List.init(.{ a, b }).s) };
     }
 
+    //todo: check is this working?
     pub fn appendX(a: List, b: List) void {
-        _ = guile.scm_append_x(List.init2(a, b).s);
+        _ = guile.scm_append_x(List.init(.{ a, b }).s);
     }
 
     pub fn cons(a: List, b: anytype) List { // todo typecheck
         return .{ .s = guile.scm_cons(b.s, a.s) };
+    }
+
+    pub fn reverse(a: List) List {
+        return .{ .s = guile.scm_reverse(a.s) };
     }
 
     //list-ref
