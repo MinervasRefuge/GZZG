@@ -1,3 +1,5 @@
+// BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+
 const std = @import("std");
 const gzzg = @import("gzzg");
 const guile = gzzg.guile;
