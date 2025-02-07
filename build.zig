@@ -26,6 +26,20 @@ pub fn build(b: *std.Build) !void {
     module_gzzg.linkSystemLibrary("guile-3.0", .{});    
     module_gzzg.addIncludePath(.{ .cwd_relative = s });
     
+    const test_step = b.step("test", "Run all the tests");
+
+    // Is there a better way of declaring tests?
+    const gzzg_vector_test = b.addTest(.{
+        .root_source_file = .{ .cwd_relative = "tests/test_vector.zig" },
+        .target = target,
+        .optimize = optimise,
+        .single_threaded = true});
+
+    gzzg_vector_test.root_module.addImport("gzzg", module_gzzg);
+
+    test_step.dependOn(&b.addRunArtifact(gzzg_vector_test).step);
+    //test_step.dependOn(&gzzg_test.step);
+    
     const exe_gzzg = b.addExecutable(.{
         .name = "gzzg",
         .root_source_file = b.path("src/main.zig"),
@@ -66,7 +80,6 @@ pub fn build(b: *std.Build) !void {
 
     const check = b.step("check", "Check if projects compiles");
     check.dependOn(&lib_gzzg_hdf5.step);
-   
 
     b.installArtifact(exe_gzzg);
     b.installArtifact(exe_sieve_example);

@@ -490,3 +490,5 @@ pub fn UnionSCM(scmTypes: anytype) type {
 pub fn orUndefined(a: anytype) guile.SCM {
     return if (a == null) guile.SCM_UNDEFINED else a.?.s;
 }
+
+pub const initThreadForGuile = guile.scm_init_guile;
