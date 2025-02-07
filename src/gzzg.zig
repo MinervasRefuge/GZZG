@@ -485,3 +485,8 @@ pub fn UnionSCM(scmTypes: anytype) type {
     }});
     // zig fmt: on
 }
+
+//todo: check for optional type on `a`
+pub fn orUndefined(a: anytype) guile.SCM {
+    return if (a == null) guile.SCM_UNDEFINED else a.?.s;
+}

@@ -347,28 +347,28 @@ pub const Number = struct {
 
     pub fn sum(a: Number, b: ?Number) Number {
         const as = a.s;
-        const bs = if (b != null) b.?.s else guile.SCM_UNDEFINED;
+        const bs = gzzg.orUndefined(b);
 
         return .{ .s = guile.scm_sum(as, bs) };
     }
 
     pub fn difference(a: Number, b: ?Number) Number {
         const as = a.s;
-        const bs = if (b != null) b.s else guile.SCM_UNDEFINED;
+        const bs = gzzg.orUndefined(b);
 
         return .{ .s = guile.scm_difference(as, bs) };
     }
 
     pub fn product(a: Number, b: ?Number) Number {
         const as = a.s;
-        const bs = if (b != null) b.?.s else guile.SCM_UNDEFINED;
+        const bs = gzzg.orUndefined(b);
 
         return .{ .s = guile.scm_product(as, bs) };
     }
 
     pub fn divide(a: Number, b: ?Number) !Number {
         const as = a.s;
-        const bs = if (b != null) b.?.s else guile.SCM_UNDEFINED;
+        const bs = gzzg.orUndefined(b);
 
         var out: error{numericalOverflow}!Number = undefined;
 
@@ -387,7 +387,7 @@ pub const Number = struct {
 
     pub fn divideE(a: Number, b: ?Number) Number {
         const as = a.s;
-        const bs = if (b != null) b.?.s else guile.SCM_UNDEFINED;
+        const bs = gzzg.orUndefined(b);
 
         return .{ .s = guile.scm_divide(as, bs) };
     }
@@ -484,25 +484,25 @@ pub const Number = struct {
     };
 
     pub fn random(n: Number, state: ?RandomState) Number
-        { return .{ .s = guile.scm_random(n.s, if (state != null) state.s else guile.SCM_UNDEFINED) }; }
+        { return .{ .s = guile.scm_random(n.s, gzzg.orUndefined(state))}; }
     
     pub fn randomExpt(state: ?RandomState) Number
-        { return .{ .s = guile.scm_random_exp(if (state != null) state.s else guile.SCM_UNDEFINED) }; }
+        { return .{ .s = guile.scm_random_exp(gzzg.orUndefined(state)) }; }
     
     pub fn randomHollowSphereX(v: Vector, state: ?RandomState) void
-        { _ = guile.scm_random_hollow_sphere_x(v.s, if (state != null) state.s else guile.SCM_UNDEFINED); }
+        { _ = guile.scm_random_hollow_sphere_x(v.s, gzzg.orUndefined(state)); }
     
     pub fn randomNormal(state: ?RandomState) Number
-        { return .{ .s = guile.scm_random_normal(if (state != null) state.s else guile.SCM_UNDEFINED) }; }
+        { return .{ .s = guile.scm_random_normal(gzzg.orUndefined(state)) }; }
     
     pub fn randomNormalVectorX(v: Vector, state: ?RandomState) void
-        { _ = guile.scm_random_normal_vector_x(v.s, if (state != null) state.s else guile.SCM_UNDEFINED); }
+        { _ = guile.scm_random_normal_vector_x(v.s, gzzg.orUndefined(state)); }
     
     pub fn randomSolidSphereX(v: Vector, state: ?RandomState) void
-        { _ = guile.scm_random_solid_sphere_x(v.s, if (state != null) state.s else guile.SCM_UNDEFINED); }
+        { _ = guile.scm_random_solid_sphere_x(v.s, gzzg.orUndefined(state)); }
     
     pub fn randomUniform(state: ?RandomState) Number
-        { return .{ .s = guile.scm_random_uniform(if (state != null) state.s else guile.SCM_UNDEFINED) }; }
+        { return .{ .s = guile.scm_random_uniform(gzzg.orUndefined(state)) }; }
 
     // seed->random-state seed
     // datum->random-state datum
