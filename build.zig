@@ -37,7 +37,16 @@ pub fn build(b: *std.Build) !void {
 
     gzzg_vector_test.root_module.addImport("gzzg", module_gzzg);
 
+    const gzzg_list_test = b.addTest(.{
+        .root_source_file = .{ .cwd_relative = "tests/test_list.zig" },
+        .target = target,
+        .optimize = optimise,
+        .single_threaded = true});
+
+    gzzg_list_test.root_module.addImport("gzzg", module_gzzg);
+
     test_step.dependOn(&b.addRunArtifact(gzzg_vector_test).step);
+    test_step.dependOn(&b.addRunArtifact(gzzg_list_test).step);
     //test_step.dependOn(&gzzg_test.step);
     
     const exe_gzzg = b.addExecutable(.{

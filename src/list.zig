@@ -38,6 +38,9 @@ pub const List = struct {
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_list_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }  // where's the companion fn?
 
+    pub fn isNull(a: List) Boolean { return .{ .s = guile.scm_null_p(a.s) }; }
+    // pub fn isNullZ(a: List) bool { return guile.scm_is_null(a.s) != 0; } // is null didn't translate correctly
+
     pub fn lowerZ(a: List) Any { return .{ .s = a.s }; }
     
     pub fn len (a: List) Number { return .{ .s = guile.scm_length(a.s) }; }
@@ -83,22 +86,69 @@ pub const List = struct {
         return .{ .s = @call(.auto, guile.scm_list_n, outlst) };
     }
 
-    pub fn append(a: List, b: List) List {
-        return .{ .s = guile.scm_append(List.init(.{ a, b }).s) };
-    }
-
+    // zig fmt: off
+    pub fn copy(a: List) List { return .{ .s = guile.scm_list_copy(a.s) }; }
+    pub fn append(a: List, b: List) List { return .{ .s = guile.scm_append(List.init(.{ a, b }).s) }; }
     //todo: check is this working?
-    pub fn appendX(a: List, b: List) void {
-        _ = guile.scm_append_x(List.init(.{ a, b }).s);
+    pub fn appendX(a: List, b: List) void { _ = guile.scm_append_x(List.init(.{ a, b }).s); }
+    //todo: type check
+    pub fn cons(a: List, b: anytype) List { return .{ .s = guile.scm_cons(b.s, a.s) }; }
+    pub fn reverse(a: List) List { return .{ .s = guile.scm_reverse(a.s) }; }
+    // pub fn reverseX(a: *List, newtail: Any) void { 
+    
+    pub fn ref(a: List, idx: Number) Any { return .{ .s = guile.scm_list_ref(a.s, idx.s) }; }
+    // list-tail
+    // list-head
+
+    //list-set!
+    //list-cdr-set!
+    //delq +x
+    //delv +x
+    //delete +x
+
+    //delq1
+    //delete1
+    //filter
+
+    //memq
+    //memv
+    //member
+
+    //map
+
+    pub fn iterator(a: List) ConstListIterator {
+        return .{
+            .head = a,
+            .l = a
+        };
+    }
+};
+
+pub const ConstListIterator = struct {
+    head: List,
+    l: List,
+
+    const Self = @This();
+
+    pub fn next(self: *Self) ?Any {
+        if (self.l.isNull().toZ()) {
+            return null;
+        } else {
+            defer self.l = .{ .s = guile.scm_cdr(self.l.s) };
+            
+            return .{ .s = guile.scm_car(self.l.s) };
+        }
     }
 
-    pub fn cons(a: List, b: anytype) List { // todo typecheck
-        return .{ .s = guile.scm_cons(b.s, a.s) };
+    pub fn peek(self: *Self) ?Any {
+        if (self.l.isNull().toZ()) {
+            return null;
+        } else {
+            return .{ .s = guile.scm_car(self.l.s) };
+        }
     }
-
-    pub fn reverse(a: List) List {
-        return .{ .s = guile.scm_reverse(a.s) };
+    
+    pub fn reset(self: *Self) void {
+        self.l = self.head;
     }
-
-    //list-ref
 };
