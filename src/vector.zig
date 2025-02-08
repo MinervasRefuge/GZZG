@@ -61,7 +61,7 @@ pub const ConstVectorIterator = struct {
     handle: guile.scm_t_array_handle,
     len: usize,
     ptr_inc: isize,
-    elt: *const guile.SCM,
+    elt: [*]const guile.SCM,
 
     idx: usize,
 
@@ -71,29 +71,27 @@ pub const ConstVectorIterator = struct {
         if (self.idx >= self.len) return null;
 
         self.idx += 1;
-        // zig doesn't allow negative ptr math. So work with it raw.
-        const offset = @sizeOf(guile.SCM) * self.ptr_inc;
-        defer if (offset > 0) {
-            self.elt = @ptrFromInt(@intFromPtr(self.elt) + @as(usize, @intCast(offset)));
+        // zig doesn't allow negative ptr math. Workarouond many-item ptr.
+        defer if (self.ptr_inc > 0) {
+            self.elt += @as(usize, @intCast(self.ptr_inc));
         } else {
-            self.elt = @ptrFromInt(@intFromPtr(self.elt) - @as(usize, @intCast(offset * -1)));
+            self.elt -= @as(usize, @intCast(self.ptr_inc * -1));
         };
 
-        return .{ .s = self.elt.* };
+        return .{ .s = self.elt[0] };
     }
 
     pub fn peek(self: *Self) ?Any {
-        return if (self.idx >= self.len) null else .{ .s = self.elt.* };
+        return if (self.idx >= self.len) null else .{ .s = self.elt[0] };
     }
 
     //pub fn rest(self: *Self)  []Any
 
     pub fn reset(self: *Self) void {
-        const offset = @sizeOf(guile.SCM) * self.ptr_inc;
-        if (offset > 0) {
-            self.elt = @ptrFromInt(@intFromPtr(self.elt) - (@as(usize, @intCast(offset)) * self.idx));
+        if (self.ptr_inc > 0) {
+            self.elt -= @as(usize, @intCast(self.ptr_inc)) * self.idx;
         } else {
-            self.elt = @ptrFromInt(@intFromPtr(self.elt) + (@as(usize, @intCast(offset * -1)) * self.idx));
+            self.elt += @as(usize, @intCast(self.ptr_inc * -1)) * self.idx;
         }
 
         self.idx = 0;
