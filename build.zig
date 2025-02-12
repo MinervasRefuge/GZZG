@@ -28,26 +28,18 @@ pub fn build(b: *std.Build) !void {
     
     const test_step = b.step("test", "Run all the tests");
 
-    // Is there a better way of declaring tests?
-    const gzzg_vector_test = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "tests/test_vector.zig" },
+    const gzzg_test_suite = b.addTest(.{
+        .root_source_file = b.path("tests/tests.zig"),
         .target = target,
         .optimize = optimise,
-        .single_threaded = true});
+        .single_threaded = true,
+    });
 
-    gzzg_vector_test.root_module.addImport("gzzg", module_gzzg);
+    gzzg_test_suite.root_module.addImport("gzzg", module_gzzg);
+    test_step.dependOn(&b.addRunArtifact(gzzg_test_suite).step);
 
-    const gzzg_list_test = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "tests/test_list.zig" },
-        .target = target,
-        .optimize = optimise,
-        .single_threaded = true});
-
-    gzzg_list_test.root_module.addImport("gzzg", module_gzzg);
-
-    test_step.dependOn(&b.addRunArtifact(gzzg_vector_test).step);
-    test_step.dependOn(&b.addRunArtifact(gzzg_list_test).step);
-    //test_step.dependOn(&gzzg_test.step);
+    // is there a way for it to ouput the results of running the tests like pass and fail number?
+    // currently the tests are not verbose as to what they tested.
     
     const exe_gzzg = b.addExecutable(.{
         .name = "gzzg",
@@ -94,6 +86,21 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(exe_sieve_example);
     b.installArtifact(exe_snappy);
     b.installArtifact(lib_gzzg_hdf5);
+
+    // Kcov works for zig via dwarf debug info. Downside is if the function is not used, it's not
+    // listed in the dwarf and code coverage won't tell you otherwise. (100%)
+    // So if there was a way to force zig to add in all functions regardless of usage, then this
+    // might be of some use.
+    //
+    // `refAllDecls` sounds like it'll add in all the functions from a module, but it's hit and miss
+    // as to how more coverage you actually get.
+    const cov_step = b.step("cov", "Generate coverage");
+
+    const cov_run = b.addSystemCommand(&.{ "kcov", "--clean", "--include-pattern=src/", "kcov-output/" });
+    cov_run.addArtifactArg(gzzg_test_suite);
+    
+    cov_step.dependOn(&cov_run.step);
+    b.default_step.dependOn(cov_step);
 
     const run_gzzg_arti = b.addRunArtifact(exe_gzzg);
     const run_gzzg_step = b.step("run-gzzg", "Run the gzzg exe project");
