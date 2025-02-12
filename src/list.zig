@@ -102,17 +102,22 @@ pub const List = struct {
 
     //list-set!
     //list-cdr-set!
-    //delq +x
-    //delv +x
-    //delete +x
+    pub fn delq  (a: List, item: anytype) List { return .{ .s = guile.scm_d4elq(item.s, a.s) }; }
+    pub fn delv  (a: List, item: anytype) List { return .{ .s = guile.scm_delv(item.s, a.s) }; }
+    pub fn delete(a: List, item: anytype) List { return .{ .s = guile.scm_delete(item.s, a.s) }; }
 
-    //delq1
-    //delete1
+    pub fn delqX  (a: List, item: anytype) void { _ = guile.scm_delq_x(item.s, a.s); }
+    pub fn delvX  (a: List, item: anytype) void { _ = guile.scm_delv_x(item.s, a.s); }
+    pub fn deleteX(a: List, item: anytype) void { _ = guile.scm_delete_x(item.s, a.s); }
+
+    pub fn delq1X  (a: List, item: anytype) void { _ = guile.scm_delq1_x(item.s, a.s); }
+    pub fn delv1X  (a: List, item: anytype) void { _ = guile.scm_delv1_x(item.s, a.s); }
+    pub fn delete1X(a: List, item: anytype) void { _ = guile.scm_delete1_x(item.s, a.s); }
     //filter
 
-    //memq
-    //memv
-    //member
+    pub fn memq  (_: List, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
+    pub fn memv  (_: List, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
+    pub fn member(_: List, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
 
     //map
 

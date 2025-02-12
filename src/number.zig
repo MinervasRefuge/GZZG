@@ -245,11 +245,7 @@ pub const Number = struct {
         };
     }
 
-    pub fn toString(a: Number, radix: ?Number) String {
-        const r = if (radix != null) radix.?.s else guile.SCM_UNDEFINED;
-        
-        return .{ .s = guile.scm_number_to_string(a.s, r) };
-    }
+    pub fn toString(a: Number, radix: ?Number) String { return .{ .s = guile.scm_number_to_string(a.s, gzzg.orUndefined(radix)) }; }
 
     // scm_c_locale_stringn_to_number ?
 

@@ -104,7 +104,7 @@ pub fn assertSCMType(comptime t: type) void {
         .Struct => |s| {
             if (s.is_tuple) @compileError("SCMType " ++ @typeName(t) ++ " can't be a tuple");
 
-            for (s.fields) |sf| {
+            inline for (s.fields) |sf| {
                 if (std.mem.eql(u8, sf.name, "s") and sf.type == guile.SCM) return;
             }
 
@@ -172,6 +172,18 @@ pub const Any = struct {
 //                                   Primitive Procedures §6.7.2
 //                                   --------------------------
 
+fn typeExceptionSymbol() Symbol {
+    const container = struct {
+        var singleton: ?Symbol = null;
+    };
+
+    if (container.singleton == null) {
+        container.singleton = Symbol.from("type-parameter");
+    }
+
+    return container.singleton.?;
+}
+
 fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
     const fi = switch (@typeInfo(@TypeOf(f))) {
         .Fn => |fi| fi,
@@ -222,7 +234,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
                             args[i] = .{ .s = sva };
                         } else {
                             //todo: We can throw a better exception here...
-                            guile.scm_throw(Symbol.from("type-parameter").s, List.init(.{ String.from("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
+                            guile.scm_throw(typeExceptionSymbol().s, List.init(.{ String.from("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
                         }
                     } else if (@hasDecl(pt, "assert")) { // Foreign Types
                         pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
@@ -357,6 +369,9 @@ pub fn makeForeignObjectType1(name: Symbol, slot: Symbol) ForeignType {
 }
 
 //todo add checks
+//todo: Foreign Objects are based on Goops (vtables). Consider method implementations?
+//      See also src libguile/foreign-object.c
+//      Consider look at guile structures since vtables are build on that too.
 pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: [:0]const u8) type {
     return struct {
         var scmType: ForeignType = undefined;
@@ -364,6 +379,15 @@ pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: 
 
         pub fn assert(a: guile.SCM) void {
             guile.scm_assert_foreign_object_type(scmType.s, a);
+            // ---------------------- libguile/foreign-object.c:72
+            // void
+            // scm_assert_foreign_object_type (SCM type, SCM val)
+            // {
+            //   /* FIXME: Add fast path for when type == struct vtable */
+            //   if (!SCM_IS_A_P (val, type))
+            //     scm_error (scm_arg_type_key, NULL, "Wrong type (expecting ~A): ~S",
+            //                scm_list_2 (scm_class_name (type), val), scm_list_1 (val));
+            // }
         }
 
         pub fn registerType() void {

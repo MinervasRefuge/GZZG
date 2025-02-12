@@ -53,6 +53,8 @@ pub const String = struct {
     // zig fmt: off
     pub fn from    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
     pub fn fromCStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
+    pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
+    pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
     // zig fmt: on
 
     pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
@@ -74,17 +76,28 @@ pub const String = struct {
         return buf;
     }
 
-    // string->number
-
     // zig fmt: off
+    pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }
+
+    pub fn toNumber(a: String, radix: ?Number) ?Number {
+        const out = guile.scm_string_to_number(a.s, gzzg.orUndefined(radix));
+
+        return if (Boolean.isZ(out)) null else .{ .s = out };
+    }
+
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_string_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_string(a) != 0; }
+
+    pub fn isNull(a: String) Boolean { return .{ .s = guile.scm_string_null_p(a.s) }; }
 
     pub fn lowerZ(a: String) Any { return .{ .s = a.s }; }
 
     pub fn len (a: String) Number { return .{ .s = guile.scm_string_length(a.s) }; }
     pub fn lenZ(a: String) usize  { return guile.scm_c_string_length(a.s); }
 
+    // string-any
+    // string-every
+    
    // zig fmt: on
 };
 
@@ -99,6 +112,9 @@ pub const Symbol = struct {
     pub fn from    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
     pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
+    pub fn toKeyword(a: Symbol) Keyword { return .{ .s = guile.scm_symbol_to_keyword(a.s) }; }
+    pub fn toString (a: Symbol) Keyword { return .{ .s = guile.scm_symbol_to_string(a.s) }; }
+    
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_symbol_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; } 
 
@@ -134,4 +150,16 @@ pub const Symbol = struct {
 //                                         Keyword §6.6.7
 //                                         --------------
 
-pub const Keyword = struct { s: guile.SCM };
+pub const Keyword = struct {
+    s: guile.SCM,
+
+    // zig fmt: off
+    pub fn from(s: [:0]const u8) Keyword { return .{ .s = guile.scm_from_utf8_keyword(s) }; }
+
+    pub fn toSymbol(a: Keyword) Symbol { return .{ .s = guile.scm_keyword_to_symbol(a.s) }; }
+    
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_keyword_p(a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_keyword(a) != 0; }
+
+    // zig fmt: on
+};
