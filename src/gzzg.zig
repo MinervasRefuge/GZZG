@@ -6,6 +6,8 @@ pub const guile = @cImport({
     @cInclude("libguile.h");
 });
 
+pub const altscm = @import("scm.zig");
+
 //| boxes -d whirly -a c
 //add 20 space indent
 
