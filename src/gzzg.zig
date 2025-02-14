@@ -451,6 +451,14 @@ pub fn display(a: anytype) void {
     _ = guile.scm_display(a.s, guile.scm_current_output_port());
 }
 
+pub fn newlineErr() void {
+    _ = guile.scm_newline(guile.scm_current_error_port());
+}
+
+pub fn displayErr(a: anytype) void {
+    _ = guile.scm_display(a.s, guile.scm_current_error_port());
+}
+
 //todo  ptr type checking
 pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) void {
     const ExpC = struct {

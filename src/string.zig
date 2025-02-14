@@ -17,6 +17,15 @@ pub const Character = struct {
     s: guile.SCM,
 
     // zig fmt: off
+
+    pub fn fromWideZ(a: i32) Character { return .{ .s = guile.SCM_MAKE_CHAR(a) }; }
+    pub fn fromZ(a: u8) Character { return fromWideZ(@intCast(a)); }
+
+    pub fn toWideZ(a: Character) i32 { return a.toNumber().toZ(i32); } // Macro broken guile.SCM_CHAR(a.s);
+    pub fn toZ(a: Character) u8 { return a.toNumber().toZ(u8); }
+
+    pub fn toNumber(a: Character) Number { return .{ .s = guile.scm_char_to_integer(a.s) }; }
+    
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_char_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); } // where's the companion fn?
 
@@ -35,6 +44,19 @@ pub const Character = struct {
         return if (Boolean.isZ(gcat)) .{ .b = Boolean.FALSE } else .{ .a = .{ .s = gcat } };
     }
 
+    pub fn equal           (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_eq_p(x.s, y.s) }; }
+    pub fn lessThan        (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_less_p(x.s, y.s) }; }
+    pub fn greaterThan     (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_gr_p(x.s, y.s) }; }
+    pub fn lessThanEqual   (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_leq_p(x.s, y.s) }; }
+    pub fn greaterThanEqual(x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_geq_p(x.s, y.s) }; }
+
+    pub fn equalCI           (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_eq_p(x.s, y.s) }; }
+    pub fn lessThanCI        (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_less_p(x.s, y.s) }; }
+    pub fn greaterThanCI     (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_gr_p(x.s, y.s) }; }
+    pub fn lessThanEqualCI   (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_leq_p(x.s, y.s) }; }
+    pub fn greaterThanEqualCI(x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_geq_p(x.s, y.s) }; }
+    
+    
     // zig fmt: on
 };
 
@@ -57,20 +79,136 @@ pub const String = struct {
     pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
     // zig fmt: on
 
-    pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        const l = a.lenZ();
-        const buf = try allocator.alloc(u8, l + 1);
-        const written = guile.scm_to_locale_stringbuf(a.s, buf.ptr, l);
-        std.debug.assert(l == written);
+    // Notes:
+    // There does exist `scm_c_string_utf8_length` for knowing the number of bytes needed,
+    // `scm_to_locale_stringbuf` is the only way to copy the string to your own managed mem copy.
+    //         ^^^^^^ also double copies the string.
+    // Only other way is via internal fns and/~ external char encoding libs.
+    // `scm_i_string_chars (SCM str)` is public but has been marked for changing to internal only.
 
-        buf[l] = 0;
-        return buf[0..l :0];
+    fn getInternalBuffer(_: String, t: type) []const t {
+        switch (t) {
+            u8, i32 => {},
+            else => @compileError("Invalid internal string type: " ++ @typeName(t)),
+        }
+
+        // Note this code could be fragile ⚠
+
+        // Strings are a heap gc object. With 2 SCMs members and a string buffer inline.
+        // tag type => length => buffer
+        // tag type is `scm_tc7_stringbuf`
+        // tag bits also include the wide and mutable flags
+
+        //tag type should be a scm_t_bits
+
+        @panic("Bad code this way lies");
+        //const scm:[*]guile.SCM = @ptrCast(a.s);
+
+        //scm[0]
+
+        //get_str_buf_start (SCM *str, SCM *buf, size_t *start)
+        //{
+        //  *start = STRING_START (*str);
+        //  if (IS_SH_STRING (*str))
+        //    {
+        //      *str = SH_STRING_STRING (*str);
+        //      *start += STRING_START (*str);
+        //    }
+        //  *buf = STRING_STRINGBUF (*str);
+        //}
+
+        // get_str_buf_start (&str, &buf, &start);
+        // STRINGBUF_CONTENTS (buf)
+        // data += start * (scm_i_is_narrow_string (str) ? 1 : 4);
+
+    }
+
+    fn getInternalStringSize(_: String) enum { narrow, wide } {
+        return .narrow;
+        // if (IS_SH_STRING (str))
+        //   str = SH_STRING_STRING (str);
+        //
+        // return !STRINGBUF_WIDE (STRING_STRINGBUF (str));
+    }
+
+    pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
+        // Codepoint ranges vs utf8 encoding
+        //
+        // 0x00000000 - 0x0000007F:
+        //     0xxxxxxx
+        //
+        // 0x00000080 - 0x000007FF:
+        //     110xxxxx 10xxxxxx
+        //
+        // 0x00000800 - 0x0000FFFF:
+        //     1110xxxx 10xxxxxx 10xxxxxx
+        //
+        // 0x00010000 - 0x001FFFFF:
+        //     11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+
+        switch (a.getInternalStringSize()) {
+            .narrow => { // Latin-1
+                // Latin-1 matches the same order of points as UTF-32/UCS-4
+                const str_latin = a.getInternalBuffer(u8);
+
+                var len_utf8: usize = 0;
+                var multibyte_utf8 = false;
+                for (0..str_latin.len) |ll| {
+                    if (str_latin[ll] <= 0x7F) {
+                        len_utf8 += 1;
+                    } else {
+                        multibyte_utf8 = true;
+                        len_utf8 += 2;
+                    }
+                }
+
+                var str_utf8 = try allocator.alloc(u8, len_utf8 + 1);
+                errdefer allocator.free(str_utf8);
+
+                if (multibyte_utf8) {
+                    var pos_utf8: usize = 0;
+                    var pos_latin: usize = 0;
+
+                    while (pos_latin < str_latin.len) : ({
+                        pos_latin += 1;
+                        pos_utf8 += 1;
+                    }) {
+                        const char_latin = str_latin[pos_latin];
+
+                        switch (char_latin) {
+                            0x00...0x7F => str_utf8[pos_utf8] = char_latin,
+                            0x80...0xFF => {
+                                // Latin-1 is 1 byte => 8 bits
+                                // UTF-8 2-byte usage is...
+                                // 110---xx 10xxxxxx
+                                str_utf8[pos_utf8] = 0b11000000 | char_latin >> 6;
+                                pos_utf8 += 1;
+                                str_utf8[pos_utf8] = 0b10000000 | (char_latin & 0b00111111);
+                            },
+                        }
+                    }
+
+                    //assert len written
+
+                } else {
+                    @memcpy(str_utf8, str_latin);
+                }
+
+                str_utf8[len_utf8] = 0; //note: +1 in allocator
+                return @ptrCast(str_utf8);
+            },
+            .wide => { // wide str
+                @panic("unimplemented");
+            },
+        }
     }
 
     pub fn toZ(a: String, allocator: std.mem.Allocator) ![]u8 {
+        // lenZ returns the number of charaters / not bytes needed bleh.
         const l = a.lenZ();
         const buf = try allocator.alloc(u8, l + 1); //todo +1?
         const written = guile.scm_to_locale_stringbuf(a.s, buf.ptr, l);
+
         std.debug.assert(l == written);
 
         return buf;
@@ -92,13 +230,73 @@ pub const String = struct {
 
     pub fn lowerZ(a: String) Any { return .{ .s = a.s }; }
 
+
+    // §6.6.5.5 String Selection
     pub fn len (a: String) Number { return .{ .s = guile.scm_string_length(a.s) }; }
     pub fn lenZ(a: String) usize  { return guile.scm_c_string_length(a.s); }
 
+    pub fn ref (a: String, k: Number) Character { return .{ .s = guile.scm_string_ref(a.s, k.s) }; }
+    pub fn refZ(a: String, k: usize)  Character { return  .{ .s = guile.scm_c_string_ref(a.s, k) }; }
+    //string-refz
+    //string-copy
+    //substring
+    //substring/shared
+    //substring/copy
+    //substring/read-only
+    //z
+    //z
+    //z
+    //string-take
+    //string-drop
+    //string-take-right
+    //string-drop-right
+    //string-pad
+    //stringpad-right
+    //string-trim
+    //string-trim-both
+    //
+
     // string-any
-    // string-every
+    // string-ever
+
+    pub fn iterator(a: String) ConstStringIterator {
+        return .{
+            .str = a,
+            .len = a.lenZ(),
+            .idx = 0
+        };
+    }
     
-   // zig fmt: on
+    // zig fmt: on
+};
+
+const ConstStringIterator = struct {
+    str: String,
+    len: usize,
+    idx: usize,
+
+    const Self = @This();
+
+    pub fn next(self: *Self) ?Character {
+        if (self.idx < self.len) {
+            defer self.idx += 1;
+            return self.str.refZ(self.idx);
+        } else {
+            return null;
+        }
+    }
+
+    pub fn peek(self: *Self) ?Character {
+        if (self.idx < self.len) {
+            return self.str.refZ(self.idx);
+        } else {
+            return null;
+        }
+    }
+
+    pub fn reset(self: *Self) void {
+        self.idx = 0;
+    }
 };
 
 //                                          -------------

@@ -4,16 +4,13 @@ const std = @import("std");
 const gzzg = @import("gzzg");
 const guile = gzzg.guile;
 
+const gexpect = @import("tests.zig").gexpect;
 const expect = std.testing.expect;
 const print = std.debug.print;
 
 const Boolean = gzzg.Boolean;
 const Number = gzzg.Number;
 const List = gzzg.List;
-
-pub fn gexpect(v: Boolean) !void {
-    try expect(v.toZ());
-}
 
 test "guile list iterator" {
     gzzg.initThreadForGuile();

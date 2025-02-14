@@ -4,6 +4,7 @@ const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
 
 const Any = gzzg.Any;
+const Character = gzzg.Character;
 const Boolean = gzzg.Boolean;
 const String = gzzg.String;
 const Symbol = gzzg.Symbol;
@@ -246,6 +247,7 @@ pub const Number = struct {
     }
 
     pub fn toString(a: Number, radix: ?Number) String { return .{ .s = guile.scm_number_to_string(a.s, gzzg.orUndefined(radix)) }; }
+    pub fn toCharacter(a: Number) Character { return .{ .s = guile.scm_integer_to_char(a.s) }; }
 
     // scm_c_locale_stringn_to_number ?
 
