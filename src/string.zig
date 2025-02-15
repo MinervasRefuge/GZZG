@@ -86,49 +86,35 @@ pub const String = struct {
     // Only other way is via internal fns and/~ external char encoding libs.
     // `scm_i_string_chars (SCM str)` is public but has been marked for changing to internal only.
 
-    fn getInternalBuffer(_: String, t: type) []const t {
-        switch (t) {
+    // Note this code could be fragile ⚠
+    const StrBuf = packed struct { tag: gzzg.altscm.SCMBits, len: usize, buffer: u8 };
+    const StrLayout = packed struct { tag: gzzg.altscm.SCMBits, strbuf: *align(8) StrBuf };
+
+    // string tests required
+    // expect cons tag
+    // expect cons.0 to be a string tag
+    // expect cons.1 to be a cons tag
+    // expect cons.1.0 to be stringbuf tag
+    // expect const.1.0.1 to be a number,
+    // expect cons.1.0.2 to be the buffer
+
+    fn getInternalBuffer(a: String, T: type) [:0]const T {
+        switch (T) {
             u8, i32 => {},
-            else => @compileError("Invalid internal string type: " ++ @typeName(t)),
+            else => @compileError("Invalid internal string type: " ++ @typeName(T)),
         }
 
-        // Note this code could be fragile ⚠
+        const scm = gzzg.altscm; //todo: remove;
+        const s: *align(8) StrLayout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
 
-        // Strings are a heap gc object. With 2 SCMs members and a string buffer inline.
-        // tag type => length => buffer
-        // tag type is `scm_tc7_stringbuf`
-        // tag bits also include the wide and mutable flags
-
-        //tag type should be a scm_t_bits
-
-        @panic("Bad code this way lies");
-        //const scm:[*]guile.SCM = @ptrCast(a.s);
-
-        //scm[0]
-
-        //get_str_buf_start (SCM *str, SCM *buf, size_t *start)
-        //{
-        //  *start = STRING_START (*str);
-        //  if (IS_SH_STRING (*str))
-        //    {
-        //      *str = SH_STRING_STRING (*str);
-        //      *start += STRING_START (*str);
-        //    }
-        //  *buf = STRING_STRINGBUF (*str);
-        //}
-
-        // get_str_buf_start (&str, &buf, &start);
-        // STRINGBUF_CONTENTS (buf)
-        // data += start * (scm_i_is_narrow_string (str) ? 1 : 4);
-
+        return @ptrCast(@as([*]const T, @ptrCast(&s.strbuf.buffer))[0..s.strbuf.len]);
     }
 
-    fn getInternalStringSize(_: String) enum { narrow, wide } {
-        return .narrow;
-        // if (IS_SH_STRING (str))
-        //   str = SH_STRING_STRING (str);
-        //
-        // return !STRINGBUF_WIDE (STRING_STRINGBUF (str));
+    pub fn getInternalStringSize(a: String) enum { narrow, wide } {
+        const scm = gzzg.altscm; //todo: remove;
+        const s: *align(8) StrLayout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
+
+        return if (s.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
     }
 
     pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
@@ -162,7 +148,7 @@ pub const String = struct {
                     }
                 }
 
-                var str_utf8 = try allocator.alloc(u8, len_utf8 + 1);
+                var str_utf8: [:0]u8 = @ptrCast(try allocator.alloc(u8, len_utf8));
                 errdefer allocator.free(str_utf8);
 
                 if (multibyte_utf8) {
@@ -194,8 +180,9 @@ pub const String = struct {
                     @memcpy(str_utf8, str_latin);
                 }
 
-                str_utf8[len_utf8] = 0; //note: +1 in allocator
-                return @ptrCast(str_utf8);
+                // double checking even though the source str is null terminated
+                str_utf8[len_utf8] = 0;
+                return str_utf8;
             },
             .wide => { // wide str
                 @panic("unimplemented");

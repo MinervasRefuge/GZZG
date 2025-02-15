@@ -12,41 +12,76 @@ const Char = gzzg.Character;
 const Number = gzzg.Number;
 const String = gzzg.String;
 
-test "guile string from/to" {
+test "guile string from/to narrow" {
     gzzg.initThreadForGuile();
     var buffer: [100]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
 
-    //    const str =
-    //        \\You walk past the café, but you don't eat
-    //        \\When you've lived too long
-    //    ;
-
-    const str = "café";
+    const str =
+        \\You walk past the café, but you don't eat
+        \\When you've lived too long
+    ;
 
     const gstr = String.from(str);
     const out = try gstr.toCStr(fba.allocator());
 
-    //gzzg.displayErr(gstr);
-    //print(" : {s} : {s}\n{d} : {d} : {d}\n\n", .{ out, str, gstr.lenZ(), out.len, str.len });
-    print(".\n in:{X: >2} {s}\nout:{X: >2} {s}\n", .{ str, str, out, out });
-    print("gstr len: {d}\n", .{gstr.lenZ()});
-    const gf: gzzg.Procedure = .{ .s = guile.scm_c_eval_string("(lambda (a) (map (lambda (b) (number->string (char->integer b) 16)) (string->list a)))") };
-
-    gzzg.displayErr(gstr);
-    gzzg.newlineErr();
-    gzzg.displayErr(gzzg.call(gf, .{gstr}));
-
-    //    for(out.len)
     try expect(std.mem.eql(u8, str, out));
 }
 
-//caf?
-//(63 61 66 e9)
-//error: 'test_string.test.guile string from/to' failed: .
-// in:{ 63, 61, 66, C3, A9 } café
-//out:{ 63, 61, 66, 3F, AA } caf?
-//gstr len: 4
+test "guile string from/to wide" {
+    gzzg.initThreadForGuile();
+    var buffer: [200]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&buffer);
+
+    const mahjong_tiles = "🀣🀙";
+    const chess_symbols = "🨄🨃🨀🨁🨅🨅🨅";
+    const alchemical_symbols = "🜧🜓🜝";
+
+    const egyptian_hieroglyphs = "𓀷𓀧𓀎𓁟";
+    const cuneiform = "𒀕𒁖𒁲𒐈𒐨𒑔";
+    const grantha = "𑌗𑌅𑌞𑌰";
+    const old_hungarian = "𐲤𐲬𐲌𐲁";
+    const gothic = "𐌶𐌳𐌽𐍂𐍊";
+    const vai = "ꕇꔯꔐꔀꔋꕲ";
+    const hiragana = "どゅゲノダ";
+    const braille_patterns = "⡆⡲⢜⠯⠁";
+    const runic = "ᚻᛘᛡᛯᚿᚡᚭ";
+    const tibetan = "༆༲ཧཏ༱ཐ";
+    const arabic = "ظؤؿـق";
+    const hebrew = "הףמא";
+    const latin = "ĘæïÐŒ56sgSGbP";
+    const cjk = "⺥⻝⻳⻰⼆⼏";
+
+    const currency_symbols = "€₹₤¥";
+
+    // zig fmt: off
+    const str =
+        mahjong_tiles ++
+        chess_symbols ++
+        alchemical_symbols ++
+        egyptian_hieroglyphs ++
+        cuneiform ++
+        grantha ++
+        old_hungarian ++
+        gothic ++
+        vai ++
+        hiragana ++
+        braille_patterns ++
+        runic ++
+        tibetan ++
+        arabic ++
+        hebrew ++
+        latin ++
+        cjk ++
+        currency_symbols;
+    // zig fmt: on
+
+    const gstr = String.from(str);
+    try expect(gstr.getInternalStringSize() == .wide); // fail
+
+    const out = try gstr.toCStr(fba.allocator());
+    try expect(std.mem.eql(u8, str, out));
+}
 
 test "guile string ref" {
     gzzg.initThreadForGuile();

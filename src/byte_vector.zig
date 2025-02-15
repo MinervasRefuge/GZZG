@@ -18,7 +18,7 @@ pub const ByteVector = struct {
     const BIG: Symbol = .{ .s = guile.scm_endianness_big };
     const LITTLE: Symbol = .{ .s = guile.scm_endianness_little };
 
-    pub fn from(data: []u8) ByteVector {
+    pub fn from(data: []const u8) ByteVector {
         const bv = init(data.len);
 
         @memcpy(bv.contents(u8), data);
@@ -26,7 +26,7 @@ pub const ByteVector = struct {
         return bv;
     }
 
-    pub fn fromI8(data: []i8) ByteVector {
+    pub fn fromI8(data: []const i8) ByteVector {
         const bv = init(data.len);
 
         @memcpy(bv.contents(i8), data);

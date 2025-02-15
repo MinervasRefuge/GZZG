@@ -4,18 +4,26 @@ const std = @import("std");
 const guile = @import("gzzg.zig").guile;
 
 // Contains a parallel implementation of guile scm bit un/packing C macros
-// Based on guilelib/scm.h
+// Based on libguile/scm.h
 
 // zig fmt: off
 
+pub const SCM = [*]align(8) usize; // libguile/scm.h:228
 pub const SCMBits = usize;
-pub const SCM = *align(8) SCMBits; // libguile/scm.h:228
+
+pub fn getSCMFrom(int_ptr: usize) SCM {
+    @setRuntimeSafety(false);
+
+    return @alignCast(@as(SCM, @ptrFromInt(int_ptr)));
+}
 
 fn assert(ok: bool) void {
     if (!ok) unreachable;
 }
 
 comptime {
+    assert(@sizeOf(guile.SCM) == @sizeOf(SCM));
+    
     // libguile/scm.h:85
     assert(@sizeOf(SCM) >= 4);
     assert(@sizeOf(SCMBits) >= 4);
@@ -130,6 +138,10 @@ pub fn getTCFor(TC: type, scm: SCM) TC {
     };
         
     return @enumFromInt(@as(etc.tag_type, @truncate(@intFromPtr(scm))));
+}
+
+pub fn unpackPtr(ptr: usize) SCM {
+    return @alignCast(@as(SCM, @ptrFromInt(ptr & ~@as(usize, @intCast(0b111)))));
 }
 
 //
