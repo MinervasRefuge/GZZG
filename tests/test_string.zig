@@ -77,7 +77,7 @@ test "guile string from/to wide" {
     // zig fmt: on
 
     const gstr = String.from(str);
-    try expect(gstr.getInternalStringSize() == .wide); // fail
+    try expect(gstr.getInternalStringSize() == .wide);
 
     const out = try gstr.toCStr(fba.allocator());
     try expect(std.mem.eql(u8, str, out));

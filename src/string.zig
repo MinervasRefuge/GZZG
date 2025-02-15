@@ -114,7 +114,7 @@ pub const String = struct {
         const scm = gzzg.altscm; //todo: remove;
         const s: *align(8) StrLayout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
 
-        return if (s.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
+        return if (s.strbuf.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
     }
 
     pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
