@@ -98,6 +98,28 @@ pub const String = struct {
     // expect const.1.0.1 to be a number,
     // expect cons.1.0.2 to be the buffer
 
+    fn isDirect(s: gzzg.altscm.SCM) bool {
+        const z = gzzg.altscm;
+
+        if (!(!z.isImmediate(s) and z.getTCFor(z.TC3, s) == .cons))
+            return false;
+
+        const c0 = z.getSCMFrom(s[0]);
+        const c1 = z.getSCMFrom(s[1]);
+
+        if (!(z.isImmediate(c0) and
+            z.getTCFor(z.TC3, c0) == .tc7 and
+            z.getTCFor(z.TC7, c0) == .string and
+            !z.isImmediate(c1) and
+            z.getTCFor(z.TC3, c1) == .cons)) return false;
+
+        const v0 = z.getSCMFrom(c1[0]);
+
+        return z.isImmediate(v0) and
+            z.getTCFor(z.TC3, v0) == .tc7_2 and
+            z.getTCFor(z.TC7, v0) == .stringbuf;
+    }
+
     fn getInternalBuffer(a: String, T: type) [:0]const T {
         switch (T) {
             u8, u32 => {},
@@ -151,6 +173,8 @@ pub const String = struct {
         //
         // 0x00010000 - 0x001FFFFF:
         //     11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+
+        if (!isDirect(gzzg.altscm.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
 
         switch (a.getInternalStringSize()) {
             .narrow => { // Latin-1
@@ -214,7 +238,7 @@ pub const String = struct {
                         0x00000080...0x000007FF => 2,
                         0x00000800...0x0000FFFF => 3,
                         0x00010000...0x001FFFFF => 4,
-                        else => @panic("outside defined Unicode range"), //should never happen?
+                        else => return error.scmStringNotValidUnicode,
                     };
                 }
 
