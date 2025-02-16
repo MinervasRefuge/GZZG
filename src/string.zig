@@ -117,7 +117,27 @@ pub const String = struct {
         return if (s.strbuf.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
     }
 
-    pub fn toCStr(a: String, allocator: std.mem.Allocator) ![:0]u8 {
+    pub fn toUTF8(a: String, allocator: std.mem.Allocator) ![:0]u8 {
+        return if (@import("build_options").enable_direct_string_access)
+            toUTF8Direct(a, allocator)
+        else
+            toUTF8Copy(a, allocator);
+    }
+
+    // recopy the c allocated one to zig mem
+    fn toUTF8Copy(a: String, allocator: std.mem.Allocator) ![:0]u8 {
+        const cstr = std.mem.span(guile.scm_to_utf8_string(a.s));
+        defer std.heap.raw_c_allocator.free(cstr);
+
+        const out: [:0]u8 = @ptrCast(try allocator.alloc(u8, cstr.len));
+
+        @memcpy(out, cstr);
+
+        return out;
+    }
+
+    // direct mem access
+    fn toUTF8Direct(a: String, allocator: std.mem.Allocator) ![:0]u8 {
         // Codepoint ranges vs utf8 encoding
         //
         // 0x00000000 - 0x0000007F:
