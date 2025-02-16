@@ -73,8 +73,8 @@ pub const String = struct {
     s: guile.SCM,
 
     // zig fmt: off
-    pub fn from    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
-    pub fn fromCStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
+    pub fn fromUTF8    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
+    pub fn fromUTF8CStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
     pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
     pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
     // zig fmt: on
@@ -88,7 +88,7 @@ pub const String = struct {
 
     // Note this code could be fragile ⚠
     const StrBuf = packed struct { tag: gzzg.altscm.SCMBits, len: usize, buffer: u8 };
-    const StrLayout = packed struct { tag: gzzg.altscm.SCMBits, strbuf: *align(8) StrBuf };
+    const Layout = packed struct { tag: gzzg.altscm.SCMBits, strbuf: *align(8) StrBuf };
 
     // string tests required
     // expect cons tag
@@ -100,19 +100,19 @@ pub const String = struct {
 
     fn getInternalBuffer(a: String, T: type) [:0]const T {
         switch (T) {
-            u8, i32 => {},
+            u8, u32 => {},
             else => @compileError("Invalid internal string type: " ++ @typeName(T)),
         }
 
         const scm = gzzg.altscm; //todo: remove;
-        const s: *align(8) StrLayout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) Layout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
 
         return @ptrCast(@as([*]const T, @ptrCast(&s.strbuf.buffer))[0..s.strbuf.len]);
     }
 
     pub fn getInternalStringSize(a: String) enum { narrow, wide } {
         const scm = gzzg.altscm; //todo: remove;
-        const s: *align(8) StrLayout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) Layout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
 
         return if (s.strbuf.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
     }
@@ -184,21 +184,86 @@ pub const String = struct {
                 str_utf8[len_utf8] = 0;
                 return str_utf8;
             },
-            .wide => { // wide str
-                @panic("unimplemented");
+            .wide => {
+                const str_utf32 = a.getInternalBuffer(u32);
+
+                var len_utf8: usize = 0;
+                for (0..str_utf32.len) |ll| {
+                    len_utf8 += switch (str_utf32[ll]) {
+                        0x00000000...0x0000007F => 1,
+                        0x00000080...0x000007FF => 2,
+                        0x00000800...0x0000FFFF => 3,
+                        0x00010000...0x001FFFFF => 4,
+                        else => @panic("outside defined Unicode range"), //should never happen?
+                    };
+                }
+
+                var str_utf8: [:0]u8 = @ptrCast(try allocator.alloc(u8, len_utf8));
+                errdefer allocator.free(str_utf8);
+
+                var pos_utf8: usize = 0;
+                var pos_utf32: usize = 0;
+
+                while (pos_utf32 < str_utf32.len) : ({
+                    pos_utf32 += 1;
+                    pos_utf8 += 1;
+                }) {
+                    const char_utf32 = str_utf32[pos_utf32];
+
+                    // zig fmt: off
+                    switch (char_utf32) {
+                        0x00000000...0x0000007F => str_utf8[pos_utf8] = @truncate(char_utf32),
+                        0x00000080...0x000007FF => {
+                            // 110xxxxx 10xxxxxx
+                            str_utf8[pos_utf8] = 0b11000000 |
+                                @as(u8, @truncate(char_utf32 >> 6));
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
+                        },
+                        0x00000800...0x0000FFFF => {
+                            // 1110xxxx 10xxxxxx 10xxxxxx
+                            str_utf8[pos_utf8] = 0b11100000 |
+                                @as(u8, @truncate(char_utf32 >> 12));
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32 >> 6)) & 0b00111111);
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
+                        },
+                        0x00010000...0x001FFFFF => {
+                            // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                            str_utf8[pos_utf8] = 0b11110000 |
+                                @as(u8, @truncate(char_utf32 >> 18));
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32 >> 12)) & 0b00111111);
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32 >> 6)) & 0b00111111);
+                            
+                            pos_utf8 += 1;
+                            str_utf8[pos_utf8] = 0b10000000 |
+                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
+                        },
+                        else => unreachable, // as per previous switch panic
+                    }
+                }
+                // zig fmt: on
+
+                //assert len written
+
+                // double checking even though the source str is null terminated
+                str_utf8[len_utf8] = 0;
+                return str_utf8;
             },
         }
-    }
-
-    pub fn toZ(a: String, allocator: std.mem.Allocator) ![]u8 {
-        // lenZ returns the number of charaters / not bytes needed bleh.
-        const l = a.lenZ();
-        const buf = try allocator.alloc(u8, l + 1); //todo +1?
-        const written = guile.scm_to_locale_stringbuf(a.s, buf.ptr, l);
-
-        std.debug.assert(l == written);
-
-        return buf;
     }
 
     // zig fmt: off

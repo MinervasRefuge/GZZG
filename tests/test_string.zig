@@ -14,7 +14,7 @@ const String = gzzg.String;
 
 test "guile string from/to narrow" {
     gzzg.initThreadForGuile();
-    var buffer: [100]u8 = undefined;
+    var buffer: [220]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
 
     const str =
@@ -22,15 +22,26 @@ test "guile string from/to narrow" {
         \\When you've lived too long
     ;
 
-    const gstr = String.from(str);
-    const out = try gstr.toCStr(fba.allocator());
+    const gstr = String.fromUTF8(str);
+    const out = try gstr.toUTF8(fba.allocator());
 
     try expect(std.mem.eql(u8, str, out));
+
+    const str2 =
+        \\There is something delicious about writing the first words
+        \\ of a story. You never quite know where they'll take you.
+        \\ ~ Beatrix Potter
+    ;
+
+    const gstr2 = String.fromUTF8(str2);
+    const out2 = try gstr2.toUTF8(fba.allocator());
+
+    try expect(std.mem.eql(u8, str2, out2));
 }
 
 test "guile string from/to wide" {
     gzzg.initThreadForGuile();
-    var buffer: [200]u8 = undefined;
+    var buffer: [300]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&buffer);
 
     const mahjong_tiles = "🀣🀙";
@@ -76,10 +87,10 @@ test "guile string from/to wide" {
         currency_symbols;
     // zig fmt: on
 
-    const gstr = String.from(str);
+    const gstr = String.fromUTF8(str);
     try expect(gstr.getInternalStringSize() == .wide);
 
-    const out = try gstr.toCStr(fba.allocator());
+    const out = try gstr.toUTF8(fba.allocator());
     try expect(std.mem.eql(u8, str, out));
 }
 
@@ -88,7 +99,7 @@ test "guile string ref" {
 
     // zig fmt: off
     const str  = "Hello World!";
-    const gstr = String.fromCStr(str);
+    const gstr = String.fromUTF8CStr(str);
 
     try expect(str.len == gstr.lenZ());
     try gexpect(Number.from(str.len).equal(gstr.len()));
@@ -116,7 +127,7 @@ test "guile string iter" {
     gzzg.initThreadForGuile();
 
     const str = "Then we were Ziggy's band";
-    const gstr = String.fromCStr(str);
+    const gstr = String.fromUTF8CStr(str);
 
     var itr = gstr.iterator();
 
