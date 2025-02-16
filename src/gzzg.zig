@@ -34,8 +34,10 @@ pub const GuileGCAllocator = struct {
     }
 
     // fn alloc(ctx: *anyopaque, n: usize, log2_ptr_align: u8, ra: usize) ?[*]u8
-    fn alloc(ctx: *anyopaque, n: usize, _: u8, _: usize) ?[*]u8 {
+    fn alloc(ctx: *anyopaque, n: usize, alignment: u8, _: usize) ?[*]u8 {
         const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+
+        if (alignment > 8) return null; // libguile/scm.h:228
 
         return @ptrCast(guile.scm_gc_malloc(n, self.what));
     }
@@ -236,7 +238,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
                             args[i] = .{ .s = sva };
                         } else {
                             //todo: We can throw a better exception here...
-                            guile.scm_throw(typeExceptionSymbol().s, List.init(.{ String.from("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
+                            guile.scm_throw(typeExceptionSymbol().s, List.init(.{ String.fromUTF8("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
                         }
                     } else if (@hasDecl(pt, "assert")) { // Foreign Types
                         pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
@@ -300,7 +302,7 @@ pub fn defineGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0
 
     //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
     if (documentation != null) {
-        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.from(documentation.?).s);
+        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.fromUTF8(documentation.?).s);
     }
 
     return .{ .s = gp };

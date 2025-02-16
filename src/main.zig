@@ -11,7 +11,7 @@ pub fn main() !void {
 
     const out_port = guile.scm_current_output_port();
     const scmstr = guile.scm_from_utf8_string("Hello World!");
-    const scmstr2 = g.String.fromCStr("And again but different.");
+    const scmstr2 = g.String.fromUTF8("And again but different.");
 
     _ = guile.scm_display(scmstr, out_port);
     _ = guile.scm_newline(out_port);
@@ -61,7 +61,7 @@ pub fn main() !void {
     _ = guile.scm_display(lst.s, out_port);
     _ = guile.scm_newline(out_port);
 
-    _ = guile.scm_display(guile.scm_append_x(g.List.init(.{ lst, g.List.init(.{ g.String.from("a"), g.String.from("b") }) }).s), out_port);
+    _ = guile.scm_display(guile.scm_append_x(g.List.init(.{ lst, g.List.init(.{ g.String.fromUTF8("a"), g.String.fromUTF8("b") }) }).s), out_port);
     _ = guile.scm_newline(out_port);
 
     _ = guile.scm_display(lst.s, out_port);
@@ -77,7 +77,7 @@ pub fn main() !void {
         std.debug.print("error div zero catched\n", .{});
     }
     g.newline();
-    g.display(g.String.from("It Worked!\n"));
+    g.display(g.String.fromUTF8("It Worked!\n"));
 
     const dbz = g.defineGSubR("div-by-zero", divideByZero, "Test of raise exceptions from a zig error");
 

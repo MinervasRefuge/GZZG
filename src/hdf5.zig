@@ -81,7 +81,7 @@ pub fn openH5(file: g.String, _: g.List) !H5HID {
     //    H5F_ACC_RDWR
     //        H5F_ACC_RDONLY
 
-    const v = try file.toCStr(alloc);
+    const v = try file.toUTF8(alloc);
     defer alloc.free(v);
 
     return switch (h5.H5Fopen(v, 0, h5.H5P_DEFAULT)) {
@@ -95,7 +95,7 @@ pub fn closeH5(hdl: H5HID) void {
 }
 
 pub fn openH5Group(h5Hndl: H5HID, path: g.String) !H5HID { //todo H5HID or #f
-    const v = try path.toCStr(alloc);
+    const v = try path.toUTF8(alloc);
     defer alloc.free(v);
 
     return H5HID.init(h5.H5Gopen1(h5Hndl.to(), v));
@@ -106,12 +106,11 @@ pub fn closeH5Group(h5GroupHndl: H5HID) void {
 }
 
 pub fn openH5Dataset(hndl: H5HID, path: g.String) !H5HID {
-    return switch (h5.H5Dopen2(hndl.to(), try path.toCStr(alloc), h5.H5P_DEFAULT)) {
+    return switch (h5.H5Dopen2(hndl.to(), try path.toUTF8(alloc), h5.H5P_DEFAULT)) {
         h5.H5I_INVALID_HID => error.InvalidHID,
         else => |r| H5HID.init(r),
     };
 }
-
 pub fn closeH5Dataset(hndl: H5HID) void {
     _ = h5.H5Dclose(hndl.to());
 }
@@ -182,7 +181,7 @@ const H5GInfo = struct {
         defer alloc.free(s);
         
         // zig fmt: on
-        return g.String.from(s);
+        return g.String.fromUTF8(s);
     }
 
     pub usingnamespace g.SetupFT(H5GInfo, h5.H5G_info_t, "H5GInfo", "info");
@@ -220,7 +219,7 @@ const H5LInfo2 = struct {
 
         defer alloc.free(s);
 
-        return g.String.from(s);
+        return g.String.fromUTF8(s);
     }
 
     pub usingnamespace g.SetupFT(H5LInfo2, h5.H5L_info2_t, "H5LInfo2", "info");
@@ -231,7 +230,7 @@ fn linkIter(group: h5.hid_t, name: [*c]const u8, info: [*c]const h5.H5L_info2_t,
 
     var l: *g.List = @alignCast(@ptrCast(op_data));
 
-    l.* = l.cons(g.Pair.from(g.String.from(std.mem.span(name)), H5LInfo2.init(info)));
+    l.* = l.cons(g.Pair.from(g.String.fromUTF8(std.mem.span(name)), H5LInfo2.init(info)));
 
     return 0;
 }
@@ -312,7 +311,7 @@ pub fn getProperties(plist_hndl: H5HID) g.List {
 fn propIter(_: h5.hid_t, name: [*c]const u8, iter_data: ?*anyopaque) callconv(.C) h5.herr_t {
     var l: *g.List = @alignCast(@ptrCast(iter_data));
 
-    l.* = l.cons(g.String.from(std.mem.span(name)));
+    l.* = l.cons(g.String.fromUTF8(std.mem.span(name)));
 
     return 0;
 }
@@ -420,7 +419,7 @@ const H5OInfo2 = struct {
 
         //const s = std.json.stringifyAlloc(alloc, i, .{}) catch @trap();
 
-        return g.String.from("FIX ME");
+        return g.String.fromUTF8("FIX ME");
     }
 
     pub fn getOType(a: H5OInfo2) g.Symbol {
@@ -473,7 +472,7 @@ const H5IType = RecreateEnum(h5.enum_H5I_type_t, h5, .{
 });
 
 fn openObject(hndl: H5HID, path: g.String) !H5HID {
-    return switch (h5.H5Oopen(hndl.to(), try path.toCStr(alloc), h5.H5P_DEFAULT)) {
+    return switch (h5.H5Oopen(hndl.to(), try path.toUTF8(alloc), h5.H5P_DEFAULT)) {
         h5.H5I_INVALID_HID => error.InvalidHID,
         else => |r| H5HID.init(r),
     };
