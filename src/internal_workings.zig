@@ -116,7 +116,6 @@ pub const TC8  = enum (u8) {
 
 // IFLAG  (line 544)
 // SCM_MAKIFLAG_BITS
-
 // SCM_BOOL_F
 // SCM_BOOL_T
 // SCM_ELISP_NIL

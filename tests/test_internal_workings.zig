@@ -3,8 +3,7 @@
 const std = @import("std");
 const gzzg = @import("gzzg");
 const guile = gzzg.guile;
-
-const scm = gzzg.altscm;
+const iw = gzzg.internal_workings;
 
 const gexpect = @import("tests.zig").gexpect;
 const expect = std.testing.expect;
@@ -15,7 +14,7 @@ const Number = gzzg.Number;
 test "gzzg immediate integer packing/unpacking" {
     gzzg.initThreadForGuile();
 
-    const fnum_bits = @typeInfo(scm.FixNum).Int.bits;
+    const fnum_bits = @typeInfo(iw.FixNum).Int.bits;
     const max_range = @divExact(std.math.pow(usize, 2, fnum_bits), 2);
 
     var n = -@as(isize, @intCast(max_range)); // loop twice the numberVV
@@ -23,7 +22,7 @@ test "gzzg immediate integer packing/unpacking" {
         // `alignCast` puts in a check which isn't helpful for testing immediate objects
         @setRuntimeSafety(false);
         const gnum = Number.from(n);
-        const s: scm.SCM = @ptrCast(@alignCast(gnum.s));
+        const s: iw.SCM = @ptrCast(@alignCast(gnum.s));
 
         // zig fmt: off
         //const fstr = std.fmt.comptimePrint(
@@ -33,13 +32,13 @@ test "gzzg immediate integer packing/unpacking" {
 
         //print(fstr, .{ n, n, @intFromPtr(s) });
 
-        try expect(scm.isImmediate(s));
-        try expect(scm.isFixNum(s));
-        try expect(scm.getFixNum(s) == n);
+        try expect(iw.isImmediate(s));
+        try expect(iw.isFixNum(s));
+        try expect(iw.getFixNum(s) == n);
 
-        const gznum = scm.makeFixNum(@intCast(n));
-        try expect(scm.isImmediate(gznum));
-        try expect(scm.isFixNum(gznum));
+        const gznum = iw.makeFixNum(@intCast(n));
+        try expect(iw.isImmediate(gznum));
+        try expect(iw.isFixNum(gznum));
         try expect(gznum == s);
     }
 }

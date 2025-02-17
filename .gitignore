@@ -49,8 +49,9 @@ flycheck_*.el
 ### zig ###
 # Zig programming language
 
-zig-cache/
+.zig-cache/
 zig-out/
 build/
 build-*/
 docgen_tmp/
+kcov*/

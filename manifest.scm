@@ -3,4 +3,4 @@
 ;; that accepts a '--manifest' (or '-m') option.
 
 (specifications->manifest
-  (list "zig" "zig-zls" "guile" "valgrind" "hdf5" "kcov"))
+  (list "zig" "guile" "kcov"))

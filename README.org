@@ -3,7 +3,11 @@
 
 * GZZG
 
-An attempt at a Zig wrapper for Guile C API using /libhdf5/ as a test-bed to explore the requirements.
+A typed Zig wrapper for the Guile (scheme) C API.
+
+Includes an experimental (read: unstable likely to change) direct memory access API.
+
+Requires libguile-3.0.
 
 Note that this is very much 🚧 /work in progress/ 🚧.
 

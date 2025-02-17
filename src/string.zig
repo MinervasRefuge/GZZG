@@ -4,6 +4,7 @@ const std = @import("std");
 
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
+const iw = gzzg.internal_workings;
 
 const Any = gzzg.Any;
 const Boolean = gzzg.Boolean;
@@ -87,8 +88,8 @@ pub const String = struct {
     // `scm_i_string_chars (SCM str)` is public but has been marked for changing to internal only.
 
     // Note this code could be fragile ⚠
-    const StrBuf = packed struct { tag: gzzg.altscm.SCMBits, len: usize, buffer: u8 };
-    const Layout = packed struct { tag: gzzg.altscm.SCMBits, strbuf: *align(8) StrBuf };
+    const StrBuf = packed struct { tag: iw.SCMBits, len: usize, buffer: u8 };
+    const Layout = packed struct { tag: iw.SCMBits, strbuf: *align(8) StrBuf };
 
     // string tests required
     // expect cons tag
@@ -98,26 +99,25 @@ pub const String = struct {
     // expect const.1.0.1 to be a number,
     // expect cons.1.0.2 to be the buffer
 
-    fn isDirect(s: gzzg.altscm.SCM) bool {
-        const z = gzzg.altscm;
-
-        if (!(!z.isImmediate(s) and z.getTCFor(z.TC3, s) == .cons))
+    fn isDirect(s: iw.SCM) bool {
+        if (!(!iw.isImmediate(s) and iw.getTCFor(iw.TC3, s) == .cons))
             return false;
 
-        const c0 = z.getSCMFrom(s[0]);
-        const c1 = z.getSCMFrom(s[1]);
+        const c0 = iw.getSCMFrom(s[0]);
+        const c1 = iw.getSCMFrom(s[1]);
 
-        if (!(z.isImmediate(c0) and
-            z.getTCFor(z.TC3, c0) == .tc7 and
-            z.getTCFor(z.TC7, c0) == .string and
-            !z.isImmediate(c1) and
-            z.getTCFor(z.TC3, c1) == .cons)) return false;
+        if (!(iw.isImmediate(c0) and
+            iw.getTCFor(iw.TC3, c0) == .tc7 and
+            iw.getTCFor(iw.TC7, c0) == .string and
+            !iw.isImmediate(c1) and
+            iw.getTCFor(iw.TC3, c1) == .cons))
+            return false;
 
-        const v0 = z.getSCMFrom(c1[0]);
+        const v0 = iw.getSCMFrom(c1[0]);
 
-        return z.isImmediate(v0) and
-            z.getTCFor(z.TC3, v0) == .tc7_2 and
-            z.getTCFor(z.TC7, v0) == .stringbuf;
+        return iw.isImmediate(v0) and
+            iw.getTCFor(iw.TC3, v0) == .tc7_2 and
+            iw.getTCFor(iw.TC7, v0) == .stringbuf;
     }
 
     fn getInternalBuffer(a: String, T: type) [:0]const T {
@@ -126,15 +126,13 @@ pub const String = struct {
             else => @compileError("Invalid internal string type: " ++ @typeName(T)),
         }
 
-        const scm = gzzg.altscm; //todo: remove;
-        const s: *align(8) Layout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
         return @ptrCast(@as([*]const T, @ptrCast(&s.strbuf.buffer))[0..s.strbuf.len]);
     }
 
     pub fn getInternalStringSize(a: String) enum { narrow, wide } {
-        const scm = gzzg.altscm; //todo: remove;
-        const s: *align(8) Layout = @ptrCast(scm.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
         return if (s.strbuf.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
     }
@@ -174,7 +172,7 @@ pub const String = struct {
         // 0x00010000 - 0x001FFFFF:
         //     11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
 
-        if (!isDirect(gzzg.altscm.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
+        if (!isDirect(iw.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
 
         switch (a.getInternalStringSize()) {
             .narrow => { // Latin-1
