@@ -18,16 +18,15 @@ pub fn build(b: *std.Build) !void {
     module_gzzg_nondirect.addOptions("build_options", build_options_nondirect);
 
     // Pathing issue patch
-    const p = try std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH");
-    defer b.allocator.free(p);
-    const s = try std.fmt.allocPrint(b.allocator, "{s}/guile/3.0", .{p});
-    defer b.allocator.free(s);
+    const inc_paths = try includePaths(b);
+    defer b.allocator.free(inc_paths);
+    defer for (inc_paths) |p| b.allocator.free(p);
 
     module_gzzg.linkSystemLibrary("guile-3.0", .{});
-    module_gzzg.addIncludePath(.{ .cwd_relative = s });
+    for (inc_paths) |p| module_gzzg.addIncludePath(.{ .cwd_relative = p });
 
     module_gzzg_nondirect.linkSystemLibrary("guile-3.0", .{});
-    module_gzzg_nondirect.addIncludePath(.{ .cwd_relative = s });
+    for (inc_paths) |p| module_gzzg.addIncludePath(.{ .cwd_relative = p });
 
     //
 
@@ -51,6 +50,32 @@ pub fn build(b: *std.Build) !void {
 //
 //
 //
+
+fn includePaths(b: *std.Build) ![][]u8 {
+    const envp = try std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH");
+    defer b.allocator.free(envp);
+
+    var paths = std.ArrayList([]u8).init(b.allocator);
+
+    errdefer {
+        while (paths.popOrNull()) |p| {
+            b.allocator.free(p);
+        }
+
+        paths.deinit();
+    }
+
+    var itr = std.mem.splitScalar(u8, envp, ':');
+
+    while (itr.next()) |p| {
+        const ap = try std.fmt.allocPrint(b.allocator, "{s}/guile/3.0", .{p});
+        errdefer b.allocator.free(ap);
+
+        try paths.append(ap);
+    }
+
+    return paths.toOwnedSlice();
+}
 
 fn getTargetOptions(b: *std.Build) std.Build.ResolvedTarget {
     const container = struct {
