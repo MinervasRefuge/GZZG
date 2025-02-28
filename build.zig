@@ -138,6 +138,7 @@ fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Com
     step.dependOn(&cmd.step);
 }
 
+// todo: make as an external callable function
 fn produceGuileModule(b: *std.Build) *std.Build.Module {
     const envp = std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH") catch @panic("ENV!");
     defer b.allocator.free(envp);
@@ -164,10 +165,121 @@ fn produceGuileModule(b: *std.Build) *std.Build.Module {
 
     trans.addIncludeDir(path_include);
 
-    const gmod = trans.addModule("guile");
+    var clean_trans = SourceCleaner.create(b, .{ .translation_path = trans.getOutput() });
+
+    const gmod = clean_trans.addModule("guile");
     gmod.resolved_target = getTargetOptions(b);
     gmod.optimize = getOptimiseOptions(b);
     gmod.linkSystemLibrary("guile-3.0", .{ .needed = true });
 
     return gmod;
 }
+
+// SourceCleaner hides a few invalid functions from the c-translated header.
+// Helpful for dev purposes, though not needed for external libs
+const SourceCleaner = struct {
+    step: std.Build.Step,
+    source: std.Build.LazyPath,
+    output_file: std.Build.GeneratedFile,
+    file_name: []const u8,
+
+    const Options = struct { translation_path: std.Build.LazyPath };
+
+    pub fn create(owner: *std.Build, options: Options) *SourceCleaner {
+        const cleaner = owner.allocator.create(SourceCleaner) catch @panic("OOM");
+        const source = options.translation_path.dupe(owner);
+
+        cleaner.* = SourceCleaner{
+            .step = std.Build.Step.init(.{
+                .id = std.Build.Step.Id.custom,
+                .name = "trim-guile_c-translate", //
+                .owner = owner,
+                .makeFn = make,
+            }),
+            .source = source,
+            .output_file = .{ .step = &cleaner.step },
+            .file_name = "c-out.zig",
+        };
+
+        source.addStepDependencies(&cleaner.step);
+
+        return cleaner;
+    }
+
+    pub fn getOutput(cleaner: *SourceCleaner) std.Build.LazyPath {
+        return .{ .generated = .{ .file = &cleaner.output_file } };
+    }
+
+    pub fn addModule(cleaner: *SourceCleaner, name: []const u8) *std.Build.Module {
+        return cleaner.step.owner.addModule(name, .{
+            .root_source_file = cleaner.getOutput(),
+        });
+    }
+
+    fn make(step: *std.Build.Step, prog_node: std.Progress.Node) !void {
+        const b = step.owner;
+        const cleaner: *SourceCleaner = @fieldParentPtr("step", step);
+
+        const path = cleaner.source.getPath2(b, step);
+        const file_zig = std.fs.openFileAbsolute(path, .{}) catch @panic("missing file");
+        defer file_zig.close();
+
+        const full_source = file_zig.readToEndAllocOptions(b.allocator, 500_000, null, @alignOf(u8), 0) catch @panic("Bleh");
+        const ast = std.zig.Ast.parse(b.allocator, full_source, .zig) catch unreachable;
+
+        {
+            const roots = ast.rootDecls();
+            std.debug.print("{}\n\n", .{ast.nodes.get(roots[0])});
+
+            for (roots) |node_idx| {
+                var buffer: [1]std.zig.Ast.Node.Index = undefined;
+
+                if (ast.fullFnProto(&buffer, node_idx)) |ffp| {
+                    const fn_name = ast.tokenSlice(ffp.name_token.?);
+
+                    if (std.mem.startsWith(u8, fn_name, "scm_i_") or
+                        std.mem.startsWith(u8, fn_name, "SCM_I_"))
+                    {
+                        const pub_token = ast.tokens.get(ffp.visib_token.?);
+
+                        @memset(full_source[pub_token.start .. pub_token.start + 3], ' ');
+                    }
+                }
+            }
+        }
+
+        var man = b.graph.cache.obtain();
+        defer man.deinit();
+
+        man.hash.add(std.fmt.bytesToHex("ice-9", .upper));
+        man.hash.addBytes(full_source);
+
+        if (try step.cacheHit(&man)) {
+            const digest = man.final();
+
+            cleaner.output_file.path = try b.cache_root.join(b.allocator, &.{ "o", &digest, cleaner.file_name });
+            std.debug.print("out_path = {s}\n\n", .{cleaner.output_file.path.?});
+            return;
+        }
+
+        const digest = man.final();
+        const cache_path = "o" ++ std.fs.path.sep_str ++ digest;
+
+        var cache_dir = try b.cache_root.handle.makeOpenPath(cache_path, .{});
+        defer cache_dir.close();
+
+        const out_file = cache_dir.createFile(cleaner.file_name, .{}) catch @panic("FILE");
+        defer out_file.close();
+
+        out_file.writeAll(full_source) catch @panic("CAN'T WRITE");
+
+        cleaner.output_file.path = try b.cache_root.join(b.allocator, &.{ cache_path, cleaner.file_name });
+        std.debug.print("out_path = {s}\n\n", .{cleaner.output_file.path.?});
+
+        //
+
+        try step.writeManifest(&man);
+
+        _ = prog_node;
+    }
+};
