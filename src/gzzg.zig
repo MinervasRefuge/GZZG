@@ -1,10 +1,7 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 
 const std = @import("std");
-
-pub const guile = @cImport({
-    @cInclude("libguile.h");
-});
+pub const guile = @import("guile");
 
 /// Zig implementation of Guiles bit stuffing rules. libguile/scm.h
 pub const internal_workings = @import("internal_workings.zig");

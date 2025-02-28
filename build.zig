@@ -2,31 +2,24 @@
 
 const std = @import("std");
 
-const options = .{"enable_direct_string_access"};
+const gzzg_options = .{"enable_direct_string_access"};
 
 pub fn build(b: *std.Build) !void {
     const module_gzzg = createModule(b);
     const module_gzzg_nondirect = createModule(b);
+    const module_guile = produceGuileModule(b);
+
+    module_gzzg.addImport("guile", module_guile);
+    module_gzzg_nondirect.addImport("guile", module_guile);
 
     const build_options = b.addOptions();
-    build_options.addOption(bool, options[0], true);
+    build_options.addOption(bool, gzzg_options[0], true);
 
     const build_options_nondirect = b.addOptions();
-    build_options_nondirect.addOption(bool, options[0], false);
+    build_options_nondirect.addOption(bool, gzzg_options[0], false);
 
     module_gzzg.addOptions("build_options", build_options);
     module_gzzg_nondirect.addOptions("build_options", build_options_nondirect);
-
-    // Pathing issue patch
-    const inc_paths = try includePaths(b);
-    defer b.allocator.free(inc_paths);
-    defer for (inc_paths) |p| b.allocator.free(p);
-
-    module_gzzg.linkSystemLibrary("guile-3.0", .{});
-    for (inc_paths) |p| module_gzzg.addIncludePath(.{ .cwd_relative = p });
-
-    module_gzzg_nondirect.linkSystemLibrary("guile-3.0", .{});
-    for (inc_paths) |p| module_gzzg.addIncludePath(.{ .cwd_relative = p });
 
     //
 
@@ -50,32 +43,6 @@ pub fn build(b: *std.Build) !void {
 //
 //
 //
-
-fn includePaths(b: *std.Build) ![][]u8 {
-    const envp = try std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH");
-    defer b.allocator.free(envp);
-
-    var paths = std.ArrayList([]u8).init(b.allocator);
-
-    errdefer {
-        while (paths.popOrNull()) |p| {
-            b.allocator.free(p);
-        }
-
-        paths.deinit();
-    }
-
-    var itr = std.mem.splitScalar(u8, envp, ':');
-
-    while (itr.next()) |p| {
-        const ap = try std.fmt.allocPrint(b.allocator, "{s}/guile/3.0", .{p});
-        errdefer b.allocator.free(ap);
-
-        try paths.append(ap);
-    }
-
-    return paths.toOwnedSlice();
-}
 
 fn getTargetOptions(b: *std.Build) std.Build.ResolvedTarget {
     const container = struct {
@@ -169,4 +136,38 @@ fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Com
     cmd.addArtifactArg(test_suite);
 
     step.dependOn(&cmd.step);
+}
+
+fn produceGuileModule(b: *std.Build) *std.Build.Module {
+    const envp = std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH") catch @panic("ENV!");
+    defer b.allocator.free(envp);
+
+    // can pkg-conf come into play here, rather than doing this manually.
+    var path_header: ?[]u8 = null;
+    var path_include: []u8 = undefined;
+    var itr_h = std.mem.splitScalar(u8, envp, ':');
+    while (itr_h.next()) |p| {
+        const full_path = b.fmt("{s}/guile/3.0/libguile.h", .{p});
+        std.fs.accessAbsolute(full_path, .{}) catch continue;
+
+        path_header = full_path;
+        path_include = b.fmt("{s}/guile/3.0", .{p});
+        break;
+    }
+
+    var trans = b.addTranslateC(.{
+        .root_source_file = .{ .cwd_relative = path_header.? },
+        .link_libc = true,
+        .target = getTargetOptions(b),
+        .optimize = getOptimiseOptions(b), //
+    });
+
+    trans.addIncludeDir(path_include);
+
+    const gmod = trans.addModule("guile");
+    gmod.resolved_target = getTargetOptions(b);
+    gmod.optimize = getOptimiseOptions(b);
+    gmod.linkSystemLibrary("guile-3.0", .{ .needed = true });
+
+    return gmod;
 }
