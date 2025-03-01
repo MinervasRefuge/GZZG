@@ -458,8 +458,6 @@ pub const Number = struct {
     pub fn logNot (a: Number, b: Number)   Number  { return .{ .s = guile.scm_lognot(a.s, b.s) }; }
     pub fn logTest(a: Number, b: Number)   Boolean { return .{ .s = guile.scm_logtest(a.s, b.s) }; }
     pub fn logBit (a: Number, idx: Number) Boolean { return .{ .s = guile.scm_logbit_p(a.s, idx.s) }; }
-
-    // guile.scm_i_logand(x: SCM, y: SCM, rest: SCM) `i` varients?
     
     pub fn ash        (a: Number, count: Number) Number { return .{ .s = guile.scm_ash(a.s, count.s) }; }
     pub fn roundAsh   (a: Number, count: Number) Number { return .{ .s = guile.scm_round_ash(a.s, count.s) }; }

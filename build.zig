@@ -217,21 +217,24 @@ const SourceCleaner = struct {
     }
 
     fn make(step: *std.Build.Step, prog_node: std.Progress.Node) !void {
+        _ = prog_node;
         const b = step.owner;
         const cleaner: *SourceCleaner = @fieldParentPtr("step", step);
 
-        const path = cleaner.source.getPath2(b, step);
-        const file_zig = std.fs.openFileAbsolute(path, .{}) catch @panic("missing file");
-        defer file_zig.close();
+        const full_source: [:0]u8 = initialisation: {
+            const path = cleaner.source.getPath2(b, step);
+            const file_zig = std.fs.openFileAbsolute(path, .{}) catch @panic("missing file");
+            defer file_zig.close();
 
-        const full_source = file_zig.readToEndAllocOptions(b.allocator, 500_000, null, @alignOf(u8), 0) catch @panic("Bleh");
-        const ast = std.zig.Ast.parse(b.allocator, full_source, .zig) catch unreachable;
+            break :initialisation file_zig.readToEndAllocOptions(b.allocator, 500_000, null, @alignOf(u8), 0) catch @panic("Bleh");
+        };
 
+        // parse ast and modify the full_source to remove the `pub` tags
         {
-            const roots = ast.rootDecls();
-            std.debug.print("{}\n\n", .{ast.nodes.get(roots[0])});
+            var ast = std.zig.Ast.parse(b.allocator, full_source, .zig) catch unreachable;
+            defer ast.deinit(b.allocator);
 
-            for (roots) |node_idx| {
+            for (ast.rootDecls()) |node_idx| {
                 var buffer: [1]std.zig.Ast.Node.Index = undefined;
 
                 if (ast.fullFnProto(&buffer, node_idx)) |ffp| {
@@ -242,12 +245,13 @@ const SourceCleaner = struct {
                     {
                         const pub_token = ast.tokens.get(ffp.visib_token.?);
 
-                        @memset(full_source[pub_token.start .. pub_token.start + 3], ' ');
+                        @memset(full_source[pub_token.start..][0..3], ' ');
                     }
                 }
             }
         }
 
+        // Setup caching checks
         var man = b.graph.cache.obtain();
         defer man.deinit();
 
@@ -258,28 +262,25 @@ const SourceCleaner = struct {
             const digest = man.final();
 
             cleaner.output_file.path = try b.cache_root.join(b.allocator, &.{ "o", &digest, cleaner.file_name });
-            std.debug.print("out_path = {s}\n\n", .{cleaner.output_file.path.?});
+
             return;
         }
 
+        // write out file since the cache didn't hit.
         const digest = man.final();
         const cache_path = "o" ++ std.fs.path.sep_str ++ digest;
 
         var cache_dir = try b.cache_root.handle.makeOpenPath(cache_path, .{});
         defer cache_dir.close();
 
-        const out_file = cache_dir.createFile(cleaner.file_name, .{}) catch @panic("FILE");
+        const out_file = try cache_dir.createFile(cleaner.file_name, .{});
         defer out_file.close();
-
-        out_file.writeAll(full_source) catch @panic("CAN'T WRITE");
+        try out_file.writeAll(full_source);
 
         cleaner.output_file.path = try b.cache_root.join(b.allocator, &.{ cache_path, cleaner.file_name });
-        std.debug.print("out_path = {s}\n\n", .{cleaner.output_file.path.?});
 
         //
 
         try step.writeManifest(&man);
-
-        _ = prog_node;
     }
 };
