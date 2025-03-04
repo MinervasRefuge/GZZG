@@ -2,6 +2,7 @@
 
 const gzzg = @import("gzzg.zig");
 const guile = gzzg.guile;
+const iw = gzzg.internal_workings;
 
 const Any = gzzg.Any;
 const Character = gzzg.Character;
@@ -171,11 +172,37 @@ const Vector = gzzg.Vector;
 pub const Number = struct {
     s: guile.SCM,
 
+    pub fn fromZ(comptime n: anytype) Number {
+        if (!@import("build_options").enable_comptime_number_creation)
+            @compileError("\"enable_comptime_number_creation\" not enabled. Use `from`");
+
+        switch (@typeInfo(@TypeOf(n))) {
+            .ComptimeInt => {
+                return .{ .s = @ptrCast(iw.makeFixNum(n)) };
+            },
+            .Struct => |st| { // todo: Does this belong? The divide has to be called at runtime.
+                if ((!st.is_tuple) or n.len != 2) @compileError("Expected tuple with two numbers for Rational number");
+
+                inline for (n) |elem| {
+                    switch (@typeInfo(@TypeOf(elem))) {
+                        .ComptimeInt => {},
+                        else => @compileError("Expected tuple with two comptime Integers for Rational number"),
+                    }
+                }
+
+                return (comptime fromZ(n[0])).divideE(comptime fromZ(n[1]));
+            },
+            else => @compileError("No comptime number behaviour for type:" ++ @typeName(@TypeOf(n))),
+        }
+    }
+
     //todo: is it worth swtching on bit ranges or only standard bit sizes?
     // zig fmt: off
     pub fn from(n: anytype) Number {
         const scm = switch (@typeInfo(@TypeOf(n))) {
-            .ComptimeInt => guile.scm_from_size_t(n),
+            .ComptimeInt => if (@import("build_options").enable_comptime_number_creation)
+                fromZ(n).s else
+                guile.scm_from_size_t(n),
             .Int => |i| switch (i.bits) {
                 1...8 => switch (i.signedness) {
                     .signed   => guile.scm_from_int8 (@intCast(n)),

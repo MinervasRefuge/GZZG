@@ -2,7 +2,10 @@
 
 const std = @import("std");
 
-const gzzg_options = .{"enable_direct_string_access"};
+const gzzg_options = .{
+    "enable_direct_string_access",
+    "enable_comptime_number_creation",
+};
 
 pub fn build(b: *std.Build) !void {
     const module_gzzg = createModule(b);
@@ -14,9 +17,11 @@ pub fn build(b: *std.Build) !void {
 
     const build_options = b.addOptions();
     build_options.addOption(bool, gzzg_options[0], true);
+    build_options.addOption(bool, gzzg_options[1], true);
 
     const build_options_nondirect = b.addOptions();
     build_options_nondirect.addOption(bool, gzzg_options[0], false);
+    build_options_nondirect.addOption(bool, gzzg_options[1], false);
 
     module_gzzg.addOptions("build_options", build_options);
     module_gzzg_nondirect.addOptions("build_options", build_options_nondirect);
