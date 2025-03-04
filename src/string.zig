@@ -308,6 +308,18 @@ pub const String = struct {
         }
     }
 
+    // todo: add direct verions
+    // todo: consider if the format fn should: exist, display or write
+    // todo: format options
+    //pub fn format(value: String, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        var iter = value.iterator();
+
+        while (iter.next()) |chr| {
+            _ = try writer.write(&.{chr.toZ()});
+        }
+    }
+
     // zig fmt: off
     pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }
 
@@ -405,7 +417,7 @@ pub const Symbol = struct {
     pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
     pub fn toKeyword(a: Symbol) Keyword { return .{ .s = guile.scm_symbol_to_keyword(a.s) }; }
-    pub fn toString (a: Symbol) Keyword { return .{ .s = guile.scm_symbol_to_string(a.s) }; }
+    pub fn toString (a: Symbol) String  { return .{ .s = guile.scm_symbol_to_string(a.s) }; }
     
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_symbol_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; } 
