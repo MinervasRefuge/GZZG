@@ -85,9 +85,22 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 //
 //
 
+pub const Smob   = @import("smob.zig").Smob;
+pub const Thread = @import("thread.zig").Thread;
+pub const Hook   = @import("hook.zig").Hook;
+
+//
+//
+
 pub const Module      = struct { s: guile.SCM };
 pub const Procedure   = struct { s: guile.SCM };
 pub const ForeignType = struct { s: guile.SCM };
+
+//
+//
+
+pub const Stack = @import("vm.zig").Stack;
+pub const Frame = @import("vm.zig").Frame;
 
 // zig fmt: on
 
@@ -116,7 +129,11 @@ pub fn assertSCMType(comptime t: type) void {
     }
 }
 
-pub const Any = struct {
+pub const Any = extern struct {
+    pub const UNDEFINED = Any{ .s = guile.SCM_UNDEFINED };
+    pub const UNSPECIFIED = Any{ .s = guile.SCM_UNSPECIFIED };
+    // todo: consider EOF, EOL,ELISP_NILL?
+
     s: guile.SCM,
 
     // zig fmt: off
@@ -134,6 +151,10 @@ pub const Any = struct {
             @compileError("Missing `isZ` for type narrowing (`raise`) on " ++ @typeName(SCMType));
 
         return if (SCMType.isZ(a.s)) .{ .s = a.s } else null;
+    }
+
+    comptime {
+        std.debug.assert(@sizeOf(@This()) == @sizeOf(guile.SCM));
     }
 };
 
@@ -288,6 +309,41 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
             }
         }
     }.wrapper;
+}
+
+pub fn defineCGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
+    const ft = switch (@typeInfo(@TypeOf(ff))) {
+        .Fn => |fs| fs,
+        else => @compileError("Bad fn"), // todo: improve error
+    };
+
+    if (ft.calling_convention != .C) @compileError("fn must be using `c` calling convention");
+
+    inline for (ft.params) |p| if (p.type != Any) @compileError("All parameters must be of `Any` type");
+    if (ft.return_type) |rty| {
+        if (rty != Any) @compileError("Return type must be `Any` type");
+    } else {
+        @compileError("Must have an `any` return type");
+    }
+
+    // todo: improve exception options.
+
+    const gp = guile.scm_c_define_gsubr(name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(&ff)));
+
+    //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
+    if (documentation != null) {
+        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.fromUTF8(documentation.?).s);
+    }
+
+    return .{ .s = gp };
+}
+
+pub fn defineCGSubRAndExport(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
+    const scmf = defineCGSubR(name, ff, documentation);
+
+    guile.scm_c_export(name, guile.NULL);
+
+    return scmf;
 }
 
 pub fn defineGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
