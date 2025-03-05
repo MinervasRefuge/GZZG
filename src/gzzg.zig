@@ -104,16 +104,6 @@ pub const Frame = @import("vm.zig").Frame;
 
 // zig fmt: on
 
-// `to` implies conversion
-// `as` implies change
-// `from` is the reverse of `to` AToB <=> BFromA
-
-// use `from` as a constructor for the guile type
-// append `Z` if function returns zig values.
-// append `X` for mutation functions (more-so based on scm function naming)
-// append `E` if a known exception can be raised but isn't capture by the function
-// CONST => from => to => is => lowerZ => other
-
 pub fn assertSCMType(comptime t: type) void {
     switch (@typeInfo(t)) {
         .Struct => |s| {

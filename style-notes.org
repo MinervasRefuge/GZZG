@@ -1,0 +1,66 @@
+#+OPTIONS: toc:nil
+#+OPTIONS: ^:nil
+* Style Notes[fn:1]
+** Type Constraints
+
+- ~lowerZ~ to widen the type to ~Any~
+- ~raiseZ~ to narrow a type (only on ~Any~)
+
+For composite types, ~drop~ and ~lift~ might be used to change Zig data to Guile data.
+With the Number Tower, Smob types, External Types (vtables). Anything with an intermediate type (before ~Any~) does the above rules work? should there be ~sublower~ or passing the lowering type (comptime) in?
+   
+** Function Declaration Order
+ - Use ~from*~ as a direct constructor for the Guile type.
+ - append ~Z~ if function returns Zig values, with no similar function. (companion function).
+ - append ~X~ for mutation functions (more-so based on scm function naming)
+ - append ~E~ if a known exception can be raised but isn't capture by the function. (which is many of the functions, so it may be easy to miss/not write).
+
+Order the letters alphabetically.
+
+If a companion ~.C~ method exists should it always be added? Should there always be ~isZ~ if there isn't a direct call? eg. not using ~Boolean.toZ()~ ~is(a).toZ()~.
+   
+1. ~CONST~
+2. Constructors
+   - ~from~
+   - ~fromZ~
+   - ~from*~
+   - ~make~
+   - ~make*~
+   - Other
+3. ~to~, ~toZ~
+4. ~is~, ~isZ~
+5. ~lowerZ~
+6. ~is*~
+7. Other/Rest
+
+#+NAME: Example Layout
+#+BEGIN_SRC zig
+  struct {
+      const DATA = @This(){ .s = guile.DATA };
+
+      s: guile.SCM,
+
+      pub fn fromUTF8(s: []const u8) @This() {}
+      pub fn make(k: Number, chr: ?Character) @This() {}
+
+      pub fn toNumber(a: @This(), radix: ?Number) ?Number {}
+      pub fn toSymbol(a: @This()) Symbol {}
+
+      pub fn is (a: guile.SCM) Boolean   {}
+      pub fn isZ(a: guile.SCM) bool      {}
+      pub fn lowerZ(a: @This()) Any {}
+
+      pub fn isThunk(a: @This()) Boolean {}
+      pub fn isThunkZ(a: @This()) bool   {}
+
+      //
+      //
+
+      pub fn len (a: @This()) Number {}
+      pub fn lenZ(a: @This()) usize  {}
+  }
+#+END_SRC
+
+* Footnotes
+
+[fn:1] BSD-3-Clause : Copyright © 2025 Abigale Raeck. 
