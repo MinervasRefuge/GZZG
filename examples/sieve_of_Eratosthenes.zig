@@ -105,10 +105,10 @@ pub fn main() !void {
     std.debug.print("{s}", .{std.fmt.comptimePrint("comptime sieve {d}:\t{d}\n", .{ 100, comptimeSieve(100) })});
 
     guile.scm_init_guile();
-    _ = guile.scm_c_eval_string(scmSieve);
+    //_ = gzzg.evalE(scmSieve, null);     //todo fix
 
-    const gSieveFN = gzzg.defineGSubR("gzzg-naïve-sieve", gzzgNaiveSieve, null);
-    const gSieveOut = gzzg.call(gSieveFN, .{gzzg.Number.from(100)}).raiseZ(gzzg.List).?;
+    const gSieveFN = gzzg.Procedure.define("gzzg-naïve-sieve", gzzgNaiveSieve, null, false);
+    const gSieveOut = gSieveFN.callE(.{gzzg.Number.from(100)}).raiseZ(gzzg.List).?;
 
     std.debug.print("gzzg naïve sieve {d}:\t", .{100});
     gzzg.display(gSieveOut);

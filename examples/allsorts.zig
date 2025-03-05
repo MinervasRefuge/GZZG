@@ -79,7 +79,7 @@ pub fn main() !void {
     g.newline();
     g.display(g.String.fromUTF8("It Worked!\n"));
 
-    const dbz = g.defineGSubR("div-by-zero", divideByZero, "Test of raise exceptions from a zig error");
+    const dbz = g.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
 
     _ = guile.scm_call_0(dbz.s);
 }

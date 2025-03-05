@@ -92,8 +92,8 @@ pub const Hook   = @import("hook.zig").Hook;
 //
 //
 
-pub const Module      = struct { s: guile.SCM };
-pub const Procedure   = struct { s: guile.SCM };
+pub const Module      = @import("program.zig").Module;
+pub const Procedure   = @import("program.zig").Procedure;
 pub const ForeignType = struct { s: guile.SCM };
 
 //
@@ -109,11 +109,8 @@ pub fn assertSCMType(comptime t: type) void {
         .Struct => |s| {
             if (s.is_tuple) @compileError("SCMType " ++ @typeName(t) ++ " can't be a tuple");
 
-            inline for (s.fields) |sf| {
-                if (std.mem.eql(u8, sf.name, "s") and sf.type == guile.SCM) return;
-            }
-
-            @compileError("SCMType " ++ @typeName(t) ++ " missing valid SCM field");
+            if (std.meta.fieldIndex(t, "s") == null)
+                @compileError("Missing `s: guile.SCM` field in:" ++ @typeName(t));
         },
         else => @compileError("SCMType not a struct"),
     }
@@ -181,230 +178,74 @@ pub const Any = extern struct {
 //                                        HashTable §6.6.22
 //                                        -----------------
 
-//                                   --------------------------
-//                                   Primitive Procedures §6.7.2
-//                                   --------------------------
+pub fn evalE(str: anytype, module: ?Module) Any {
+    // string is expect to be in locale encoding
+    // the c code just calls scm_from_locale_string.
+    // _ = guile.scm_c_eval_string(…);
+    // equv to the following
 
-fn typeExceptionSymbol() Symbol {
-    const container = struct {
-        var singleton: ?Symbol = null;
-    };
-
-    if (container.singleton == null) {
-        container.singleton = Symbol.from("type-parameter");
-    }
-
-    return container.singleton.?;
-}
-
-fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
-    const fi = switch (@typeInfo(@TypeOf(f))) {
-        .Fn => |fi| fi,
-        else => @compileError("Only wraps Functions"),
-    }; //todo: could improve errors here.
-
-    //todo: is there a better way of building a tuple for the `@call`?
-    comptime var fields: [fi.params.len]std.builtin.Type.StructField = undefined;
-
-    inline for (fi.params, 0..) |p, i| {
-        // zig fmt: off
-        fields[i] = std.builtin.Type.StructField{
-            .name = std.fmt.comptimePrint("{d}", .{i}),
-            .type = p.type.?, // optional for anytype?
-            .default_value = null,
-            .is_comptime = false,
-            .alignment = 0
-        };
-        // zig fmt: on
-    }
-
-    const Args = @Type(.{
-        .Struct = .{
-            .layout = .auto,
-            .fields = &fields,
-            .decls = &[_]std.builtin.Type.Declaration{},
-            .is_tuple = true,
-        },
-    });
-
-    return struct {
-        //todo: use options as guile optional parms
-        //todo: consider implicied type conversion guile.SCM => i32 (other then Number)
-        //todo: return type of tuple as a scm_values returns
-        fn wrapper(...) callconv(.C) guile.SCM {
-            var args: Args = undefined;
-
-            {
-                var varg = @cVaStart();
-                defer @cVaEnd(&varg);
-
-                inline for (fi.params, 0..) |p, i| {
-                    const pt = p.type.?;
-                    const sva = @cVaArg(&varg, guile.SCM);
-
-                    if (@hasDecl(pt, "isZ")) { // Common wrapped types
-                        if (pt.isZ(sva)) {
-                            args[i] = .{ .s = sva };
+    //todo fix
+    const gs = init: {
+        switch (@typeInfo(@TypeOf(str))) {
+            .Array => |a| {
+                if (a.child != u8) @compileError("Array should have a sub type of u8");
+                break :init String.fromUTF8(&str);
+            },
+            .Pointer => |p| {
+                if (p.child != u8) @compileError("Slice should have a sub type of u8: " ++ @typeName(p.child));
+                switch (p.size) {
+                    .One => @compileError("Bad Pointer type"),
+                    .Many => {
+                        if (p.sentinel) |s| {
+                            if (@as(*u8, @ptrCast(s)) != 0)
+                                @compileError("Sentinel value must be 0");
+                            break :init String.fromUTF8CStr(str);
                         } else {
-                            //todo: We can throw a better exception here...
-                            guile.scm_throw(typeExceptionSymbol().s, List.init(.{ String.fromUTF8("Not a " ++ @typeName(pt) ++ " at index " ++ std.fmt.comptimePrint("{d}", .{i})), Any{ .s = sva } }).s);
+                            @compileError("Many ptr must have sentinel of :0");
                         }
-                    } else if (@hasDecl(pt, "assert")) { // Foreign Types
-                        pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
-                        args[i] = .{ .s = sva };
-                    } else if (p.type.? == guile.SCM) {
-                        args[i] = sva;
-                    } else {
-                        @compileError("Unknown parm type for guile wrapper function: " ++ @typeName(pt) ++ " Did you forget to make `pub` for `usingnamespace gzzg.SetupFT`?");
-                    }
+                    },
+                    .Slice => break :init String.fromUTF8(str),
+                    .C => break :init String.fromUTF8CStr(str),
                 }
-            }
+            },
+            .Struct => {
+                if (@TypeOf(str) != String)
+                    @compileError("Struct should have been a `String`");
 
-            //todo: consider using `.always_inline`?
-            const out = @call(.auto, f, args);
-
-            //todo: simplify switch
-            switch (@typeInfo(fi.return_type.?)) {
-                .ErrorUnion => |eu| {
-                    if (out) |ok| {
-                        switch (eu.payload) {
-                            void => {
-                                return guile.SCM_UNDEFINED;
-                            },
-                            guile.SCM => {
-                                return ok;
-                            },
-                            else => {
-                                return ok.s; //todo: check that return is a scm wrapper
-                            },
-                        }
-                    } else |err| {
-                        //todo: format error name scm style (eg. dash over camel case)
-                        guile.scm_throw(Symbol.from(@errorName(err)).s, List.init(.{}).s);
-                    }
-                },
-                else => {
-                    switch (fi.return_type.?) {
-                        void => {
-                            return guile.SCM_UNDEFINED;
-                        },
-                        guile.SCM => {
-                            return out;
-                        },
-                        else => {
-                            return out.s; //todo: check that return is a scm wrapper
-                        },
-                    }
-                },
-            }
+                break :init str;
+            },
+            else => @compileError("Not a string: " ++ @typeName(@TypeOf(str))),
         }
-    }.wrapper;
-}
-
-pub fn defineCGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
-    const ft = switch (@typeInfo(@TypeOf(ff))) {
-        .Fn => |fs| fs,
-        else => @compileError("Bad fn"), // todo: improve error
     };
 
-    if (ft.calling_convention != .C) @compileError("fn must be using `c` calling convention");
-
-    inline for (ft.params) |p| if (p.type != Any) @compileError("All parameters must be of `Any` type");
-    if (ft.return_type) |rty| {
-        if (rty != Any) @compileError("Return type must be `Any` type");
-    } else {
-        @compileError("Must have an `any` return type");
-    }
-
-    // todo: improve exception options.
-
-    const gp = guile.scm_c_define_gsubr(name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(&ff)));
-
-    //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
-    if (documentation != null) {
-        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.fromUTF8(documentation.?).s);
-    }
-
-    return .{ .s = gp };
-}
-
-pub fn defineCGSubRAndExport(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
-    const scmf = defineCGSubR(name, ff, documentation);
-
-    guile.scm_c_export(name, guile.NULL);
-
-    return scmf;
-}
-
-pub fn defineGSubR(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
-    const ft = switch (@typeInfo(@TypeOf(ff))) {
-        .Fn => |fs| fs,
-        else => @compileError("Bad fn"), // todo: improve error
-    };
-
-    const gp = guile.scm_c_define_gsubr(name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(wrapZig(ff))));
-
-    //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
-    if (documentation != null) {
-        _ = guile.scm_set_procedure_property_x(gp, Symbol.from("documentation").s, String.fromUTF8(documentation.?).s);
-    }
-
-    return .{ .s = gp };
-}
-
-pub fn defineGSubRAndExport(name: [:0]const u8, comptime ff: anytype, documentation: ?[:0]const u8) Procedure {
-    const scmf = defineGSubR(name, ff, documentation);
-
-    guile.scm_c_export(name, guile.NULL);
-
-    return scmf;
-}
-
-pub fn defineGSubRAndExportBulk(comptime gsubr_outlines: anytype) [gsubr_outlines.len]Procedure {
-    var out: [gsubr_outlines.len]Procedure = undefined;
-
-    inline for (gsubr_outlines, 0..) |definition, idx| {
-        const doc = if (@hasField(@TypeOf(definition), "doc")) definition.doc else null;
-
-        out[idx] = defineGSubRAndExport(definition.name, definition.func, doc);
-    }
-
-    return out;
-}
-
-// todo: allow return type check
-// todo: exception handling from invalid args
-pub fn call(proc: Procedure, args: anytype) Any {
-    var scmArgs: [args.len]guile.SCM = undefined;
-
-    inline for (0..args.len) |i| {
-        scmArgs[i] = args[i].s;
-    }
-
-    return .{ .s = guile.scm_call_n(proc.s, &scmArgs, scmArgs.len) };
+    return .{ .s = guile.scm_eval_string_in_module(gs.s, orUndefined(module)) };
 }
 
 //                                      --------------------
 //                                      General Utility §6.9
 //                                      --------------------
 
-//todo: typecheck
 pub fn eq(a: anytype, b: anytype) Boolean {
+    assertSCMType(@TypeOf(a));
+    assertSCMType(@TypeOf(b));
     return .{ .s = guile.scm_eq_p(a.s, b.s) };
 }
 
-//todo: typecheck
 pub fn eqv(a: anytype, b: anytype) Boolean {
+    assertSCMType(@TypeOf(a));
+    assertSCMType(@TypeOf(b));
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
-//todo: typecheck
 pub fn equal(a: anytype, b: anytype) Boolean {
+    assertSCMType(@TypeOf(a));
+    assertSCMType(@TypeOf(b));
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
-//todo: typecheck
 pub fn eqZ(a: anytype, b: anytype) bool {
+    assertSCMType(@TypeOf(a));
+    assertSCMType(@TypeOf(b));
     return .{ .s = guile.scm_is_eq(a.s, b.s) };
 }
 
@@ -496,6 +337,7 @@ pub fn newline() void {
 }
 
 pub fn display(a: anytype) void {
+    assertSCMType(@TypeOf(a));
     _ = guile.scm_display(a.s, guile.scm_current_output_port());
 }
 
@@ -504,6 +346,7 @@ pub fn newlineErr() void {
 }
 
 pub fn displayErr(a: anytype) void {
+    assertSCMType(@TypeOf(a));
     _ = guile.scm_display(a.s, guile.scm_current_error_port());
 }
 
@@ -568,7 +411,8 @@ pub fn UnionSCM(scmTypes: anytype) type {
 
 //todo: check for optional type on `a`
 pub fn orUndefined(a: anytype) guile.SCM {
-    return if (a == null) guile.SCM_UNDEFINED else a.?.s;
+    assertSCMType(@TypeOf(a.?));
+    return if (a == null) Any.UNDEFINED.s else a.?.s;
 }
 
 pub const initThreadForGuile = guile.scm_init_guile;
