@@ -6,6 +6,11 @@ pub const guile = @import("guile");
 /// Zig implementation of Guiles bit stuffing rules. libguile/scm.h
 pub const internal_workings = @import("internal_workings.zig");
 
+pub const contracts = @import("contracts.zig");
+const GZZGType = contracts.GZZGType;
+const GZZGTypes = contracts.GZZGTypes;
+const GZZGOptionalType = contracts.GZZGOptionalType;
+
 //| boxes -d whirly -a c
 //add 20 space indent
 
@@ -121,18 +126,6 @@ pub const Frame = @import("vm.zig").Frame;
 
 // zig fmt: on
 
-pub fn assertSCMType(comptime t: type) void {
-    switch (@typeInfo(t)) {
-        .@"struct" => |s| {
-            if (s.is_tuple) @compileError("SCMType " ++ @typeName(t) ++ " can't be a tuple");
-
-            if (std.meta.fieldIndex(t, "s") == null)
-                @compileError("Missing `s: guile.SCM` field in:" ++ @typeName(t));
-        },
-        else => @compileError("SCMType not a struct"),
-    }
-}
-
 pub const Any = extern struct {
     pub const UNDEFINED = Any{ .s = guile.SCM_UNDEFINED };
     pub const UNSPECIFIED = Any{ .s = guile.SCM_UNSPECIFIED };
@@ -242,27 +235,19 @@ pub fn evalE(str: anytype, module: ?Module) Any {
 //                                      General Utility §6.9
 //                                      --------------------
 
-pub fn eq(a: anytype, b: anytype) Boolean {
-    assertSCMType(@TypeOf(a));
-    assertSCMType(@TypeOf(b));
+pub fn eq(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_eq_p(a.s, b.s) };
 }
 
-pub fn eqv(a: anytype, b: anytype) Boolean {
-    assertSCMType(@TypeOf(a));
-    assertSCMType(@TypeOf(b));
+pub fn eqv(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
-pub fn equal(a: anytype, b: anytype) Boolean {
-    assertSCMType(@TypeOf(a));
-    assertSCMType(@TypeOf(b));
+pub fn equal(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
-pub fn eqZ(a: anytype, b: anytype) bool {
-    assertSCMType(@TypeOf(a));
-    assertSCMType(@TypeOf(b));
+pub fn eqZ(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_is_eq(a.s, b.s) };
 }
 
@@ -353,8 +338,7 @@ pub fn newline() void {
     _ = guile.scm_newline(guile.scm_current_output_port());
 }
 
-pub fn display(a: anytype) void {
-    assertSCMType(@TypeOf(a));
+pub fn display(a: anytype) GZZGType(@TypeOf(a), void) {
     _ = guile.scm_display(a.s, guile.scm_current_output_port());
 }
 
@@ -362,8 +346,7 @@ pub fn newlineErr() void {
     _ = guile.scm_newline(guile.scm_current_error_port());
 }
 
-pub fn displayErr(a: anytype) void {
-    assertSCMType(@TypeOf(a));
+pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
     _ = guile.scm_display(a.s, guile.scm_current_error_port());
 }
 
@@ -392,8 +375,7 @@ pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) vo
             // zig fmt: on
 }
 
-pub fn UnionSCM(scmTypes: anytype) type {
-    //todo: check for tuple of types of scms
+pub fn UnionSCM(scmTypes: anytype) GZZGTypes(scmTypes, type) {
     comptime var uf: [scmTypes.len]std.builtin.Type.UnionField = undefined;
     comptime var ef: [scmTypes.len]std.builtin.Type.EnumField = undefined;
 
@@ -426,9 +408,7 @@ pub fn UnionSCM(scmTypes: anytype) type {
     // zig fmt: on
 }
 
-//todo: check for optional type on `a`
-pub fn orUndefined(a: anytype) guile.SCM {
-    assertSCMType(@TypeOf(a.?));
+pub fn orUndefined(a: anytype) GZZGOptionalType(@TypeOf(a), guile.SCM) {
     return if (a == null) Any.UNDEFINED.s else a.?.s;
 }
 
