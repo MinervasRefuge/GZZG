@@ -180,8 +180,8 @@ pub fn equal(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
-pub fn eqZ(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
-    return .{ .s = guile.scm_is_eq(a.s, b.s) };
+pub fn eqZ(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), bool) {
+    return guile.scm_is_eq(a.s, b.s) != 0;
 }
 
 //                                      ---------------------
