@@ -3,6 +3,8 @@
 const std = @import("std");
 pub const guile = @import("guile");
 
+pub const GuileGCAllocator = @import("Allocator.zig");
+
 /// Zig implementation of Guiles bit stuffing rules. libguile/scm.h
 pub const internal_workings = @import("internal_workings.zig");
 
@@ -10,75 +12,6 @@ pub const contracts = @import("contracts.zig");
 const GZZGType = contracts.GZZGType;
 const GZZGTypes = contracts.GZZGTypes;
 const GZZGOptionalType = contracts.GZZGOptionalType;
-
-//| boxes -d whirly -a c
-//add 20 space indent
-
-//                      .+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.
-//                     (                                                     )
-//                      ) G u i l e   T y p e :   D e f a u l t   T y p e s (
-//                     (                                                     )
-//                      "+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"
-
-pub const GuileGCAllocator = struct {
-    const Alignment = std.mem.Alignment;
-
-    what: [:0]const u8,
-    // todo: consider if it was a single threaded application. could it be worth creating a stack of `whats` that can
-    // scoped to give more context?
-
-    pub fn allocator(self: *GuileGCAllocator) std.mem.Allocator {
-        return .{
-            .ptr = self,
-            .vtable = &.{
-                .alloc = alloc,
-                .resize = resize,
-                .remap = remap,
-                .free = free,
-            },
-        };
-    }
-
-    fn alloc(ctx: *anyopaque, len: usize, alignment: Alignment, ret_addr: usize) ?[*]u8 {
-        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
-        _ = ret_addr;
-
-        switch (alignment.order(.@"8")) {
-            .gt, .eq => {},
-            .lt => return null, // libguile/scm.h:228
-        }
-
-        return @ptrCast(guile.scm_gc_malloc(len, self.what));
-    }
-
-    fn resize(context: *anyopaque, memory: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) bool {
-        const self: *GuileGCAllocator = @alignCast(@ptrCast(context));
-        _ = alignment;
-        _ = ret_addr;
-
-        _ = guile.scm_gc_realloc(memory.ptr, memory.len, new_len, self.what);
-        @panic("Resize not implemented");
-        //todo: fix and check resize alloc op.
-        //return true;
-    }
-
-    fn remap(context: *anyopaque, memory: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
-        _ = context;
-        _ = memory;
-        _ = alignment;
-        _ = new_len;
-        _ = ret_addr;
-        @panic("Unimplemented");
-    }
-
-    fn free(context: *anyopaque, buf: []u8, alignment: Alignment, ret_addr: usize) void {
-        const self: *GuileGCAllocator = @alignCast(@ptrCast(context));
-        _ = alignment;
-        _ = ret_addr;
-
-        guile.scm_gc_free(buf.ptr, buf.len, self.what);
-    }
-};
 
 // §6.6 Data Types
 // zig fmt: off
