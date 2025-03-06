@@ -14,7 +14,7 @@ const Number = gzzg.Number;
 test "gzzg immediate integer packing/unpacking" {
     gzzg.initThreadForGuile();
 
-    const fnum_bits = @typeInfo(iw.FixNum).Int.bits;
+    const fnum_bits = @typeInfo(iw.FixNum).int.bits;
     const max_range = @divExact(std.math.pow(usize, 2, fnum_bits), 2);
 
     var n = -@as(isize, @intCast(max_range)); // loop twice the numberVV

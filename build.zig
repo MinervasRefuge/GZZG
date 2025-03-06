@@ -2,6 +2,8 @@
 
 const std = @import("std");
 
+const Import = std.Build.Module.Import;
+
 // zig fmt: off
 const gzzg_options = .{
     "enable_direct_string_access",
@@ -14,10 +16,6 @@ const gzzg_options = .{
 pub fn build(b: *std.Build) !void {
     const module_gzzg = createModule(b);
     const module_gzzg_nondirect = createModule(b);
-    const module_guile = produceGuileModule(b);
-
-    module_gzzg.addImport("guile", module_guile);
-    module_gzzg_nondirect.addImport("guile", module_guile);
 
     const build_options = b.addOptions();
     build_options.addOption(bool, gzzg_options[0], true);
@@ -87,6 +85,7 @@ fn createModule(b: *std.Build) *std.Build.Module {
         .target = getTargetOptions(b),
         .optimize = getOptimiseOptions(b),
         .link_libc = true,
+        .imports = &[_]Import{.{ .name = "guile", .module = produceGuileModule(b) }},
     });
 }
 
@@ -94,42 +93,46 @@ fn buildExamples(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.M
     const target = getTargetOptions(b);
     const optimise = getOptimiseOptions(b);
 
-    const example_allsorts = b.addExecutable(.{
-        .name = "example-allsorts",
-        .root_source_file = b.path("examples/allsorts.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
+    const examples = [_]*std.Build.Step.Compile{
+        b.addExecutable(.{
+            .name = "example-allsorts",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/allsorts.zig"),
+                .target = target,
+                .optimize = optimise,
+                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+            }),
+        }),
+        b.addExecutable(.{
+            .name = "example-sieve",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/sieve_of_Eratosthenes.zig"),
+                .target = target,
+                .optimize = optimise,
+                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+            }),
+        }),
+    };
 
-    const example_sieve = b.addExecutable(.{
-        .name = "example-sieve",
-        .root_source_file = b.path("examples/sieve_of_Eratosthenes.zig"),
-        .target = target,
-        .optimize = optimise,
-    });
-
-    example_allsorts.root_module.addImport("gzzg", module_gzzg);
-    example_sieve.root_module.addImport("gzzg", module_gzzg);
-
-    b.installArtifact(example_allsorts);
-    b.installArtifact(example_sieve);
-
-    step.dependOn(&example_allsorts.step);
-    step.dependOn(&example_sieve.step);
+    for (examples) |example| {
+        b.installArtifact(example);
+        step.dependOn(&example.step);
+    }
 }
 
 fn buildTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
     // is there a way for it to ouput the results of running the tests like pass and fail number?
     // currently the tests are not verbose as to what they tested.
 
-    const test_suite = b.addTest(.{
-        .root_source_file = b.path("tests/tests.zig"),
-        .target = getTargetOptions(b),
-        .optimize = getOptimiseOptions(b),
-        .single_threaded = true,
+    const test_suite = b.addTest(.{ //
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests/tests.zig"),
+            .target = getTargetOptions(b),
+            .optimize = getOptimiseOptions(b),
+            .single_threaded = true,
+            .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+        }),
     });
-
-    test_suite.root_module.addImport("gzzg", module_gzzg);
 
     const test_suite_arti = b.addRunArtifact(test_suite);
     step.dependOn(&test_suite_arti.step);
@@ -176,7 +179,7 @@ fn produceGuileModule(b: *std.Build) *std.Build.Module {
         .optimize = getOptimiseOptions(b), //
     });
 
-    trans.addIncludeDir(path_include);
+    trans.addIncludePath(.{ .cwd_relative = path_include });
 
     var clean_trans = SourceCleaner.create(b, .{ .translation_path = trans.getOutput() });
 
@@ -229,8 +232,8 @@ const SourceCleaner = struct {
         });
     }
 
-    fn make(step: *std.Build.Step, prog_node: std.Progress.Node) !void {
-        _ = prog_node;
+    fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) !void {
+        _ = options;
         const b = step.owner;
         const cleaner: *SourceCleaner = @fieldParentPtr("step", step);
 

@@ -56,7 +56,7 @@ pub const List = struct {
             fields[i] = std.builtin.Type.StructField{
                 .name = std.fmt.comptimePrint("{d}", .{i}),
                 .type = guile.SCM,
-                .default_value = null,
+                .default_value_ptr = null,
                 .is_comptime = false,
                 .alignment = 0
             };
@@ -64,7 +64,7 @@ pub const List = struct {
         }
 
         const SCMTuple = @Type(.{
-            .Struct = .{
+            .@"struct" = .{
                 .layout = .auto,
                 .fields = &fields,
                 .decls = &[_]std.builtin.Type.Declaration{},

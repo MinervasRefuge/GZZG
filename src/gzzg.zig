@@ -16,6 +16,8 @@ pub const internal_workings = @import("internal_workings.zig");
 //                      "+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"+.+"
 
 pub const GuileGCAllocator = struct {
+    const Alignment = std.mem.Alignment;
+
     what: [:0]const u8,
     // todo: consider if it was a single threaded application. could it be worth creating a stack of `whats` that can
     // scoped to give more context?
@@ -26,33 +28,48 @@ pub const GuileGCAllocator = struct {
             .vtable = &.{
                 .alloc = alloc,
                 .resize = resize,
+                .remap = remap,
                 .free = free,
             },
         };
     }
 
-    // fn alloc(ctx: *anyopaque, n: usize, log2_ptr_align: u8, ra: usize) ?[*]u8
-    fn alloc(ctx: *anyopaque, n: usize, alignment: u8, _: usize) ?[*]u8 {
+    fn alloc(ctx: *anyopaque, len: usize, alignment: Alignment, ret_addr: usize) ?[*]u8 {
         const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+        _ = ret_addr;
 
-        if (alignment > 8) return null; // libguile/scm.h:228
+        switch (alignment.order(.@"8")) {
+            .gt, .eq => {},
+            .lt => return null, // libguile/scm.h:228
+        }
 
-        return @ptrCast(guile.scm_gc_malloc(n, self.what));
+        return @ptrCast(guile.scm_gc_malloc(len, self.what));
     }
 
-    // fn resize(ctx: *anyopaque, buf: []u8, log2_buf_align: u8, new_len: usize, ret_addr: usize) bool
-    fn resize(ctx: *anyopaque, buf: []u8, _: u8, new_len: usize, _: usize) bool {
-        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+    fn resize(context: *anyopaque, memory: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) bool {
+        const self: *GuileGCAllocator = @alignCast(@ptrCast(context));
+        _ = alignment;
+        _ = ret_addr;
 
-        _ = guile.scm_gc_realloc(buf.ptr, buf.len, new_len, self.what);
-        @trap();
+        _ = guile.scm_gc_realloc(memory.ptr, memory.len, new_len, self.what);
+        @panic("Resize not implemented");
         //todo: fix and check resize alloc op.
         //return true;
     }
 
-    // fn free(ctx: *anyopaque, buf: []u8, log2_buf_align: u8, ret_addr: usize) void
-    fn free(ctx: *anyopaque, buf: []u8, _: u8, _: usize) void {
-        const self: *GuileGCAllocator = @alignCast(@ptrCast(ctx));
+    fn remap(context: *anyopaque, memory: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
+        _ = context;
+        _ = memory;
+        _ = alignment;
+        _ = new_len;
+        _ = ret_addr;
+        @panic("Unimplemented");
+    }
+
+    fn free(context: *anyopaque, buf: []u8, alignment: Alignment, ret_addr: usize) void {
+        const self: *GuileGCAllocator = @alignCast(@ptrCast(context));
+        _ = alignment;
+        _ = ret_addr;
 
         guile.scm_gc_free(buf.ptr, buf.len, self.what);
     }
@@ -106,7 +123,7 @@ pub const Frame = @import("vm.zig").Frame;
 
 pub fn assertSCMType(comptime t: type) void {
     switch (@typeInfo(t)) {
-        .Struct => |s| {
+        .@"struct" => |s| {
             if (s.is_tuple) @compileError("SCMType " ++ @typeName(t) ++ " can't be a tuple");
 
             if (std.meta.fieldIndex(t, "s") == null)

@@ -192,7 +192,7 @@ pub const TC8 = if (bopts.trust_iw_consts) TC8Raw else TC8Guile;
 
 pub fn getTCFor(TC: type, scm: SCM) TC {
     const etc = switch (@typeInfo(TC)) {
-        .Enum => |e| e,
+        .@"enum" => |e| e,
         else => @compileError("Expected enum"),
     };
         
@@ -288,15 +288,15 @@ pub const GuileClassification = enum {
 //
 
 // §7.6.2.21 (rnrs arithmetic fixnums) naming
-pub const FixNum = @Type(.{ .Int = .{
+pub const FixNum = @Type(.{ .int = .{
     .signedness = .signed,
-    .bits = @typeInfo(isize).Int.bits - 2,
+    .bits = @typeInfo(isize).int.bits - 2,
 } });
 
 // used in internal casting
-const UFixNum = @Type(.{ .Int = .{
+const UFixNum = @Type(.{ .int = .{
     .signedness = .unsigned,
-    .bits = @typeInfo(usize).Int.bits - 2,
+    .bits = @typeInfo(usize).int.bits - 2,
 } });
 
 pub fn isFixNum(scm: SCM) bool {

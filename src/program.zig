@@ -29,7 +29,7 @@ pub const Procedure = struct {
 
     pub fn define(fn_name: [:0]const u8, comptime ff: anytype, fn_documentation: ?[:0]const u8, @"export": bool) Procedure {
         const ft = switch (@typeInfo(@TypeOf(ff))) {
-            .Fn => |fs| fs,
+            .@"fn" => |fs| fs,
             else => @compileError("Bad fn"), // todo: improve error
         };
 
@@ -52,15 +52,15 @@ pub const Procedure = struct {
     
     pub fn defineC(fn_name: [:0]const u8, comptime ff: anytype, fn_documentation: ?[:0]const u8, @"export": bool) Procedure {
         const ft = switch (@typeInfo(@TypeOf(ff))) {
-            .Fn => |fs| fs,
+            .@"fn" => |fs| fs,
             else => @compileError("Bad fn"), // todo: improve error
         };
 
         if (ft.params.len > guile.SCM_GSUBR_MAX)
             @compileError(std.fmt.comptimePrint("Fn exceeds max parameter length of: {d}", .{guile.SCM_GSUBR_MAX}));
-
-        if (ft.calling_convention != .C)
-            @compileError("fn must be using `.C` calling convention");
+        
+        if (comptime !std.meta.eql(ft.calling_convention, .c))
+            @compileError("fn must be using `.c` calling convention");
 
         inline for (ft.params) |p| if (p.type != Any)
             @compileError("All parameters must be of `Any` type");
@@ -157,9 +157,9 @@ pub const Procedure = struct {
     }
 };
 
-fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
+fn wrapZig(f: anytype) *const fn (...) callconv(.c) guile.SCM {
     const fi = switch (@typeInfo(@TypeOf(f))) {
-        .Fn => |fi| fi,
+        .@"fn" => |fi| fi,
         else => @compileError("Only wraps Functions"),
     }; //todo: could improve errors here.
 
@@ -171,7 +171,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
         fields[i] = std.builtin.Type.StructField{
             .name = std.fmt.comptimePrint("{d}", .{i}),
             .type = p.type.?, // optional for anytype?
-            .default_value = null,
+            .default_value_ptr = null,
             .is_comptime = false,
             .alignment = 0
         };
@@ -179,7 +179,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
     }
 
     const Args = @Type(.{
-        .Struct = .{
+        .@"struct" = .{
             .layout = .auto,
             .fields = &fields,
             .decls = &[_]std.builtin.Type.Declaration{},
@@ -225,7 +225,7 @@ fn wrapZig(f: anytype) *const fn (...) callconv(.C) guile.SCM {
 
             //todo: simplify switch
             switch (@typeInfo(fi.return_type.?)) {
-                .ErrorUnion => |eu| {
+                .error_union => |eu| {
                     if (out) |ok| {
                         switch (eu.payload) {
                             void => {

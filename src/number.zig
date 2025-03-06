@@ -177,10 +177,10 @@ pub const Number = struct {
             @compileError("\"enable_comptime_number_creation\" not enabled. Use `from`");
 
         switch (@typeInfo(@TypeOf(n))) {
-            .ComptimeInt => {
+            .comptime_int => {
                 return .{ .s = @ptrCast(iw.makeFixNum(n)) };
             },
-            .Struct => |st| { // todo: Does this belong? The divide has to be called at runtime.
+            .@"struct" => |st| { // todo: Does this belong? The divide has to be called at runtime.
                 if ((!st.is_tuple) or n.len != 2) @compileError("Expected tuple with two numbers for Rational number");
 
                 inline for (n) |elem| {
@@ -200,10 +200,10 @@ pub const Number = struct {
     // zig fmt: off
     pub fn from(n: anytype) Number {
         const scm = switch (@typeInfo(@TypeOf(n))) {
-            .ComptimeInt => if (@import("build_options").enable_comptime_number_creation)
+            .comptime_int => if (@import("build_options").enable_comptime_number_creation)
                 fromZ(n).s else
                 guile.scm_from_size_t(n),
-            .Int => |i| switch (i.bits) {
+            .int => |i| switch (i.bits) {
                 1...8 => switch (i.signedness) {
                     .signed   => guile.scm_from_int8 (@intCast(n)),
                     .unsigned => guile.scm_from_uint8(@intCast(n)),
@@ -222,9 +222,9 @@ pub const Number = struct {
                 },
                 else => @compileError("IntType: " ++ @typeName(n) ++ " doesn't have a conversion"),
             },
-            .ComptimeFloat => guile.scm_from_double(n),
-            .Float         => guile.scm_from_double(@as(f64, n)),
-            .Struct        => |st| {                
+            .comptime_float => guile.scm_from_double(n),
+            .float         => guile.scm_from_double(@as(f64, n)),
+            .@"struct"        => |st| {                
                 if ((!st.is_tuple) or n.len != 2) @compileError("Expected tuple with two numbers for Rational number");
 
                 inline for (n) |elem| {
@@ -249,7 +249,7 @@ pub const Number = struct {
     //todo: error or optional if outside unit size?
     pub fn toZ(a: Number, comptime t: type) t {
         return switch (@typeInfo(t)) {
-            .Int => |i| switch (i.bits) {
+            .int => |i| switch (i.bits) {
                 8 => switch (i.signedness) {
                     .signed   => guile.scm_to_int8 (a.s),
                     .unsigned => guile.scm_to_uint8(a.s),
@@ -268,7 +268,7 @@ pub const Number = struct {
                 },
                 else => @compileError("IntType: " ++ @typeName(t) ++ " doesn't have a conversion."), //todo fix
             },
-            .Float => guile.scm_to_double(a.s),
+            .float => guile.scm_to_double(a.s),
             else => @compileError("Type: " ++ @typeName(@TypeOf(t)) ++ " is not a number"), // todo fix
         };
     }
