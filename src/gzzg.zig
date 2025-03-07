@@ -38,20 +38,17 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 //pub const HashTable = SCMWrapper(null);
 
 //
-//
 
 pub const Smob   = @import("smob.zig").Smob;
 pub const Thread = @import("thread.zig").Thread;
 pub const Hook   = @import("hook.zig").Hook;
 
 //
-//
 
 pub const Module      = @import("program.zig").Module;
 pub const Procedure   = @import("program.zig").Procedure;
 pub const ForeignType = struct { s: guile.SCM };
 
-//
 //
 
 pub const Stack = @import("vm.zig").Stack;
@@ -243,7 +240,7 @@ pub fn SetupFT(comptime ft: type, comptime cct: type, name: [:0]const u8, slot: 
 // todo: type check t
 pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
     const ContinuationBarrierC = struct {
-        fn barrier(data: ?*anyopaque) callconv(.C) ?*anyopaque {
+        fn barrier(data: ?*anyopaque) callconv(.c) ?*anyopaque {
             t.barrier(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))));
 
             return guile.SCM_UNDEFINED;
@@ -259,7 +256,7 @@ pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
 //todo type check
 pub fn defineModule(name: [:0]const u8, df: anytype) Module {
     const f = struct {
-        pub fn cModuleDefine(_: ?*anyopaque) callconv(.C) void {
+        pub fn cModuleDefine(_: ?*anyopaque) callconv(.c) void {
             df();
         }
     };
@@ -286,14 +283,14 @@ pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
 //todo  ptr type checking
 pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) void {
     const ExpC = struct {
-        fn body(data: ?*anyopaque) callconv(.C) guile.SCM {
+        fn body(data: ?*anyopaque) callconv(.c) guile.SCM {
             t.body(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))));
 
             return guile.SCM_UNDEFINED;
         }
 
         // zig fmt: off
-        fn handler(data: ?*anyopaque, _key: guile.SCM, args: guile.SCM) callconv(.C) guile.SCM {
+        fn handler(data: ?*anyopaque, _key: guile.SCM, args: guile.SCM) callconv(.c) guile.SCM {
             t.handler(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))),
                       Symbol{ .s = _key },
                       Any{ .s = args });

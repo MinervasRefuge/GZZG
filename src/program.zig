@@ -174,7 +174,7 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
         //todo: use options as guile optional parms
         //todo: consider implicied type conversion guile.SCM => i32 (other then Number)
         //todo: return type of tuple as a scm_values returns
-        fn wrapper(...) callconv(.C) guile.SCM {
+        fn wrapper(...) callconv(.c) guile.SCM {
             var args: Args = undefined;
 
             {
