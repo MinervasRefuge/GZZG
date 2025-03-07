@@ -345,30 +345,8 @@ pub fn orUndefined(a: anytype) GZZGOptionalType(@TypeOf(a), guile.SCM) {
 pub const initThreadForGuile = guile.scm_init_guile;
 
 pub fn StaticCache(GType: type, strs: []const []const u8) type {
-    const Type = std.builtin.Type;
-    const print = std.fmt.comptimePrint;
-    comptime var container_fields: [strs.len]Type.StructField = undefined;
-    const gnull: ?GType = null;
-
-    inline for (0..strs.len) |i| {
-        container_fields[i] = Type.StructField{ //
-            .name = print("{d}", .{i}),
-            .type = ?GType,
-            .is_comptime = false,
-            .default_value_ptr = &gnull,
-            .alignment = @alignOf(GType),
-        };
-    }
-
-    const Container = @Type(.{ .@"struct" = Type.Struct{
-        .layout = .auto,
-        .is_tuple = false,
-        .decls = &[0]Type.Declaration{},
-        .fields = &container_fields,
-    } });
-
     return struct {
-        container: Container = .{},
+        var container = [1]?GType{null} ** strs.len;
 
         fn index(comptime str: []const u8) usize {
             for (strs, 0..) |in_str, idx| {
@@ -379,14 +357,14 @@ pub fn StaticCache(GType: type, strs: []const []const u8) type {
             @compileError("Not an member of the static lookup: " ++ str);
         }
 
-        pub fn get(self: *@This(), comptime str: []const u8) GType {
-            const idx = print("{d}", .{comptime index(str)});
+        pub fn get(comptime str: []const u8) GType {
+            const idx = comptime index(str);
 
-            if (@field(self.container, idx) == null) {
-                @field(self.container, idx) = GType.from(str);
+            if (container[idx] == null) {
+                container[idx] = GType.from(str);
             }
 
-            return @field(self.container, idx).?;
+            return container[idx].?;
         }
     };
 }
