@@ -1,13 +1,14 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg.zig");
+const std   = @import("std");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const List = gzzg.List;
-const Number = gzzg.Number;
+const List    = gzzg.List;
+const Number  = gzzg.Number;
 
 //                                         --------------
 //                                         Vector §6.6.10
@@ -16,7 +17,6 @@ const Number = gzzg.Number;
 pub const Vector = struct {
     s: guile.SCM,
 
-    // zig fmt: off
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_vector_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_vector(a) != 0; }
 
@@ -51,10 +51,6 @@ pub const Vector = struct {
 
         return itr;
     }
-
-
-
-    // zig fmt: on
 };
 
 pub const ConstVectorIterator = struct {

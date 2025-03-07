@@ -1,12 +1,13 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const gzzg = @import("gzzg.zig");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number = gzzg.Number;
-const Symbol = gzzg.Symbol;
+const Number  = gzzg.Number;
+const Symbol  = gzzg.Symbol;
 
 //                                       -------------------
 //                                       Byte Vector §6.6.12
@@ -50,7 +51,6 @@ pub const ByteVector = struct {
     // utf16->string
     // utf32->string
 
-    // zig fmt: off
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_bytevector_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_bytevector(a) != 0; }
 
@@ -134,6 +134,4 @@ pub const ByteVector = struct {
         { _ = guile.scm_bytevector_ieee_double_set_x(a.s, index.s, value.s, endianness.s); }
 
     //todo: Native?
-
-    // zig fmt: on
 };

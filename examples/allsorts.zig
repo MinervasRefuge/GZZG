@@ -1,9 +1,8 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
-const g = gzzg;
-
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
 pub fn main() !void {
@@ -11,7 +10,7 @@ pub fn main() !void {
 
     const out_port = guile.scm_current_output_port();
     const scmstr = guile.scm_from_utf8_string("Hello World!");
-    const scmstr2 = g.String.fromUTF8("And again but different.");
+    const scmstr2 = gzzg.String.fromUTF8("And again but different.");
 
     _ = guile.scm_display(scmstr, out_port);
     _ = guile.scm_newline(out_port);
@@ -38,8 +37,8 @@ pub fn main() !void {
 
     try w.print("\n\nLet's try with scm now!\n", .{});
 
-    const na = g.Number.from(54321);
-    const nb = g.Number.from(432.665);
+    const na = gzzg.Number.from(54321);
+    const nb = gzzg.Number.from(432.665);
 
     _ = nb.sum(nb);
 
@@ -53,7 +52,7 @@ pub fn main() !void {
 
     _ = guile.scm_call_1(gfn_display, no.s);
     _ = guile.scm_newline(out_port);
-    _ = guile.scm_display(g.Number.from(30).sum(g.Number.from(12)).s, out_port);
+    _ = guile.scm_display(gzzg.Number.from(30).sum(g.Number.from(12)).s, out_port);
     _ = guile.scm_newline(out_port);
 
     const lst = g.List.init(.{ g.Number.from(5), g.Number.from(1) });
@@ -68,24 +67,24 @@ pub fn main() !void {
     _ = guile.scm_newline(out_port);
 
     const la = g.List.init(.{ g.Number.from(5), g.Number.from(2) });
-    g.display(la);
-    g.newline();
+    gzzg.display(la);
+    gzzg.newline();
 
     if (g.Number.from(5).divide(g.Number.from(0))) |v| {
         std.debug.print("{}\n", .{v});
     } else |_| {
         std.debug.print("error div zero catched\n", .{});
     }
-    g.newline();
-    g.display(g.String.fromUTF8("It Worked!\n"));
+    gzzg.newline();
+    gzzg.display(g.String.fromUTF8("It Worked!\n"));
 
-    const dbz = g.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
+    const dbz = gzzg.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
 
     _ = guile.scm_call_0(dbz.s);
 }
 
-fn divideByZero() !g.Number {
-    const a = try g.Number.from(10).divide(g.Number.from(0));
+fn divideByZero() !gzzg.Number {
+    const a = try gzzg.Number.from(10).divide(g.Number.from(0));
 
-    return a.sum(g.Number.from(2));
+    return a.sum(gzzg.Number.from(2));
 }

@@ -1,13 +1,14 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
-const iw = gzzg.internal_workings;
+const iw    = gzzg.internal_workings;
 
 const gexpect = @import("tests.zig").gexpect;
-const expect = std.testing.expect;
-const print = std.debug.print;
+const expect  = std.testing.expect;
+const print   = std.debug.print;
 
 const Number = gzzg.Number;
 
@@ -24,11 +25,9 @@ test "gzzg immediate integer packing/unpacking" {
         const gnum = Number.from(n);
         const s: iw.SCM = @ptrCast(@alignCast(gnum.s));
 
-        // zig fmt: off
         //const fstr = std.fmt.comptimePrint(
         //    "Testing number: {{d}} bits: {{b:0>{d}}}   guile: {{b:0>{d}}}\n",
         //    .{fnum_bits, fnum_bits});
-        // zig fmt: on
 
         //print(fstr, .{ n, n, @intFromPtr(s) });
 

@@ -1,16 +1,17 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
 const gexpect = @import("tests.zig").gexpect;
-const expect = std.testing.expect;
-const print = std.debug.print;
+const expect  = std.testing.expect;
+const print   = std.debug.print;
 
 const Boolean = gzzg.Boolean;
-const Number = gzzg.Number;
-const List = gzzg.List;
+const Number  = gzzg.Number;
+const List    = gzzg.List;
 
 test "guile list iterator" {
     gzzg.initThreadForGuile();

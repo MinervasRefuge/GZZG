@@ -1,13 +1,12 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg.zig");
+const std   = @import("std");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-
-// zig fmt: off
 
 //                                           -----------
 //                                           Hook §6.9.6

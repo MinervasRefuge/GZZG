@@ -1,15 +1,14 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
+const std   = @import("std");
 const guile = @import("gzzg.zig").guile;
 const bopts = @import("build_options");
 
 // Contains a parallel implementation of guile scm bit un/packing C macros
 // Based on libguile/scm.h
 
-// zig fmt: off
-
-pub const SCM = [*]align(8) usize; // libguile/scm.h:228
+pub const SCM     = [*]align(8) usize; // libguile/scm.h:228
 pub const SCMBits = usize;
 
 pub fn gSCMtoIWSCM(s: guile.SCM) SCM {
@@ -183,8 +182,6 @@ const TC8Guile  = enum (u8) {
 };
 
 pub const TC8 = if (bopts.trust_iw_consts) TC8Raw else TC8Guile;
-
-// zig fmt: off
 
 //pub const TC16 = enum (u16) { //tc16 (for tc7==scm_tc7_smob):
 //    _,

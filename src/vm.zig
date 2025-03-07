@@ -1,13 +1,14 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg.zig");
+const std   = @import("std");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number = gzzg.Number;
-const Symbol = gzzg.Symbol;
+const Number  = gzzg.Number;
+const Symbol  = gzzg.Symbol;
 
 //                                         ---------------
 //                                         Stack §6.26.1.2
@@ -17,7 +18,6 @@ const Symbol = gzzg.Symbol;
 pub const Stack = struct {
     s: guile.SCM,
 
-    // zig fmt: off
     // todo: check args required for make-stack
     pub fn make() Stack { return .{ .s = guile.scm_make_stack(Boolean.TRUE.s, guile.SCM_EOL) }; }
 
@@ -38,8 +38,6 @@ pub const Stack = struct {
         };
     }
     // display-backtrace
-    
-    // zig fmt: on
 };
 
 const ConstStackIterator = struct {
@@ -78,7 +76,6 @@ const ConstStackIterator = struct {
 pub const Frame = struct {
     s: guile.SCM,
 
-    // zig fmt: off
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_frame_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }
 
@@ -131,7 +128,7 @@ pub const VMFrame = struct {
 
 pub const EngineEnum = enum(u4) {
     regular = guile.SCM_VM_REGULAR_ENGINE,
-    debug = guile.SCM_VM_DEBUG_ENGINE,
+    debug   = guile.SCM_VM_DEBUG_ENGINE,
 
     pub fn asSymbol(a: EngineEnum) Symbol {
         const container = struct {

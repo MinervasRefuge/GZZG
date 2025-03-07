@@ -1,14 +1,15 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
 const gexpect = @import("tests.zig").gexpect;
-const expect = std.testing.expect;
-const print = std.debug.print;
+const expect  = std.testing.expect;
+const print   = std.debug.print;
 
-const Char = gzzg.Character;
+const Char   = gzzg.Character;
 const Number = gzzg.Number;
 const String = gzzg.String;
 
@@ -65,7 +66,6 @@ test "guile string from/to wide" {
 
     const currency_symbols = "€₹₤¥";
 
-    // zig fmt: off
     const str =
         mahjong_tiles ++
         chess_symbols ++
@@ -85,7 +85,6 @@ test "guile string from/to wide" {
         latin ++
         cjk ++
         currency_symbols;
-    // zig fmt: on
 
     const gstr = String.fromUTF8(str);
     try expect(gstr.getInternalStringSize() == .wide);
@@ -97,7 +96,6 @@ test "guile string from/to wide" {
 test "guile string ref" {
     gzzg.initThreadForGuile();
 
-    // zig fmt: off
     const str  = "Hello World!";
     const gstr = String.fromUTF8CStr(str);
 
@@ -120,7 +118,6 @@ test "guile string ref" {
     try gexpect(gstr.ref(Number.from(4)).equal(Char.fromZ('o')));
     try gexpect(gstr.ref(Number.from(5)).equal(Char.fromZ(' ')));
     try gexpect(gstr.ref(Number.from(6)).equal(Char.fromZ('W')));
-    // zig fmt: on
 }
 
 test "guile string iter" {

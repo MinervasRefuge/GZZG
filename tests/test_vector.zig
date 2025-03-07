@@ -1,15 +1,16 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
 const expect = std.testing.expect;
-const print = std.debug.print;
+const print  = std.debug.print;
 
 const Boolean = gzzg.Boolean;
-const Number = gzzg.Number;
-const Vector = gzzg.Vector;
+const Number  = gzzg.Number;
+const Vector  = gzzg.Vector;
 
 pub fn gexpect(v: Boolean) !void {
     try expect(v.toZ());

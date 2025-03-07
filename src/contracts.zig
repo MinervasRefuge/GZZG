@@ -1,9 +1,9 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
+const std  = @import("std");
 const gzzg = @import("gzzg.zig");
-const SCM = gzzg.guile.SCM;
-
+const SCM  = gzzg.guile.SCM;
 const print = std.fmt.comptimePrint;
 
 //

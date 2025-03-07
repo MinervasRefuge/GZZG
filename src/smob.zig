@@ -1,15 +1,14 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg.zig");
+const std   = @import("std");
+const gzzg  = @import("gzzg.zig");
 const bopts = @import("build_options");
 const guile = gzzg.guile;
-const iw = gzzg.internal_workings;
+const iw    = gzzg.internal_workings;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-
-// zig fmt: off
 
 //                                           ----------
 //                                           Smob §6.21

@@ -1,7 +1,8 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-const gzzg = @import("gzzg");
+const std   = @import("std");
+const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
 pub fn naiveSieve(alloc: std.mem.Allocator, limit: usize) ![]usize {

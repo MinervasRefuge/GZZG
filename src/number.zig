@@ -1,15 +1,16 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const gzzg = @import("gzzg.zig");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
-const iw = gzzg.internal_workings;
+const iw    = gzzg.internal_workings;
 
-const Any = gzzg.Any;
+const Any       = gzzg.Any;
 const Character = gzzg.Character;
-const Boolean = gzzg.Boolean;
-const String = gzzg.String;
-const Symbol = gzzg.Symbol;
-const Vector = gzzg.Vector;
+const Boolean   = gzzg.Boolean;
+const String    = gzzg.String;
+const Symbol    = gzzg.Symbol;
+const Vector    = gzzg.Vector;
 
 //pub fn sum(a: anytype, b: anytype) NumericalTowerCascade(.{ @TypeOf(a), @TypeOf(b) }) {
 //    return .{ .s = guile.scm_sum(a.s, b.s) };
@@ -197,7 +198,6 @@ pub const Number = struct {
     }
 
     //todo: is it worth swtching on bit ranges or only standard bit sizes?
-    // zig fmt: off
     pub fn from(n: anytype) Number {
         const scm = switch (@typeInfo(@TypeOf(n))) {
             .comptime_int => if (@import("build_options").enable_comptime_number_creation)
@@ -368,7 +368,6 @@ pub const Number = struct {
     
     //
     //
-    // zig fmt: on
 
     pub fn sum(a: Number, b: ?Number) Number {
         const as = a.s;
@@ -417,7 +416,6 @@ pub const Number = struct {
         return .{ .s = guile.scm_divide(as, bs) };
     }
 
-    // zig fmt: off
     pub fn onePlus (a: Number)            Number { return .{ .s = guile.scm_oneplus(a.s) }; }
     pub fn oneMinus(a: Number)            Number { return .{ .s = guile.scm_oneminus(a.s) }; }
     pub fn abs     (a: Number)            Number { return .{ .s = guile.scm_abs(a.s) }; }
@@ -530,7 +528,4 @@ pub const Number = struct {
     // seed->random-state seed
     // datum->random-state datum
     // random-state->datum state
-    
-    
-    // zig fmt: on
 };

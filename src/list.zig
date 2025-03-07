@@ -1,13 +1,13 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-
-const gzzg = @import("gzzg.zig");
+const std   = @import("std");
+const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const Any = gzzg.Any;
+const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number = gzzg.Number;
+const Number  = gzzg.Number;
 
 //                                           -----------
 //                                           Pair §6.6.8
@@ -16,7 +16,6 @@ const Number = gzzg.Number;
 pub const Pair = struct {
     s: guile.SCM,
 
-    // zig fmt: off
     // todo: typecheck
     pub fn from(x: anytype, y: anytype) Pair { return .{ .s = guile.scm_cons(x.s, y.s) }; }
 
@@ -34,7 +33,6 @@ pub const Pair = struct {
 pub const List = struct {
     s: guile.SCM,
 
-    // zig fmt: off
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_list_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }  // where's the companion fn?
 
@@ -45,14 +43,12 @@ pub const List = struct {
     
     pub fn len (a: List) Number { return .{ .s = guile.scm_length(a.s) }; }
     pub fn lenZ(a: List) c_long { return guile.scm_ilength(a.s); }
-    // zig fmt: on
 
     pub fn init(lst: anytype) List {
         //todo: again, is there a better way to compose a tuple at comptime?
         comptime var fields: [lst.len + 1]std.builtin.Type.StructField = undefined;
 
         inline for (0..fields.len) |i| {
-            // zig fmt: off
             fields[i] = std.builtin.Type.StructField{
                 .name = std.fmt.comptimePrint("{d}", .{i}),
                 .type = guile.SCM,
@@ -60,7 +56,6 @@ pub const List = struct {
                 .is_comptime = false,
                 .alignment = 0
             };
-            // zig fmt: on
         }
 
         const SCMTuple = @Type(.{
@@ -86,7 +81,6 @@ pub const List = struct {
         return .{ .s = @call(.auto, guile.scm_list_n, outlst) };
     }
 
-    // zig fmt: off
     pub fn copy(a: List) List { return .{ .s = guile.scm_list_copy(a.s) }; }
     pub fn append(a: List, b: List) List { return .{ .s = guile.scm_append(List.init(.{ a, b }).s) }; }
     //todo: check is this working?
@@ -157,3 +151,7 @@ pub const ConstListIterator = struct {
         self.l = self.head;
     }
 };
+
+//                                     -------------------------
+//                                     Association Lists §6.6.20
+//                                     -------------------------

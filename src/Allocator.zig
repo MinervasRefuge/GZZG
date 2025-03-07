@@ -1,10 +1,10 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
+const std   = @import("std");
 const guile = @import("guile");
-
 const Alignment = std.mem.Alignment;
-const Self = @This();
+const Self      = @This();
 
 what: [:0]const u8,
 // todo: consider if it was a single threaded application. could it be worth creating a stack of `whats` that can

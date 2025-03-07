@@ -19,7 +19,18 @@ const Symbol  = gzzg.Symbol;
 
 
 pub const Module = struct {
-    s: guile.SCM
+    s: guile.SCM,
+
+    //todo type check
+    pub fn define(name: [:0]const u8, define_fn: anytype) Module {
+        const f = struct {
+            pub fn cModuleDefine(_: ?*anyopaque) callconv(.c) void {
+                define_fn();
+            }
+        };
+        
+        return .{ .s = guile.scm_c_define_module(name, f.cModuleDefine, null) };
+    }
 };
 
 
@@ -133,7 +144,6 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
     comptime var fields: [fi.params.len]std.builtin.Type.StructField = undefined;
 
     inline for (fi.params, 0..) |p, i| {
-        // zig fmt: off
         fields[i] = std.builtin.Type.StructField{
             .name = std.fmt.comptimePrint("{d}", .{i}),
             .type = p.type.?, // optional for anytype?
@@ -141,7 +151,6 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
             .is_comptime = false,
             .alignment = 0
         };
-        // zig fmt: on
     }
 
     const Args = @Type(.{
