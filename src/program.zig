@@ -25,8 +25,7 @@ pub const Module = struct {
 
 // todo: cover 6.18.10 Accessing Modules from C
 pub const Procedure = struct {
-    var _symbol_documentation:?Symbol = null;
-    var _symbol_type_parameter:?Symbol = null;
+    var symbols = gzzg.StaticCache(Symbol, &.{"documentation", "type-parameter"}){};
     
     s: guile.SCM,
 
@@ -44,7 +43,7 @@ pub const Procedure = struct {
 
         //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
         if (fn_documentation) |docs| {
-            _ = guile.scm_set_procedure_property_x(gp, symbolDocumentation().s, String.fromUTF8(docs).s);
+            _ = guile.scm_set_procedure_property_x(gp, symbols.get("documentation").s, String.fromUTF8(docs).s);
         }
 
         if (@"export") {
@@ -64,7 +63,7 @@ pub const Procedure = struct {
 
         //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
         if (fn_documentation) |docs| {
-            _ = guile.scm_set_procedure_property_x(gp, symbolDocumentation().s, String.fromUTF8(docs).s);
+            _ = guile.scm_set_procedure_property_x(gp, symbols.get("documentation").s, String.fromUTF8(docs).s);
         }
 
         if (@"export") {
@@ -125,22 +124,6 @@ pub const Procedure = struct {
         
         return .{ .s = guile.scm_call_n(proc.s, &scmArgs, scmArgs.len) };
     }
-
-    fn symbolDocumentation() Symbol {
-        if (_symbol_documentation == null) {
-            _symbol_documentation = Symbol.from("documentation");
-        }
-
-        return _symbol_documentation.?;
-    }
-    
-    fn symbolTypeParameter() Symbol {
-        if (_symbol_type_parameter == null) {
-            _symbol_type_parameter = Symbol.from("type-parameter");
-        }
-        
-        return _symbol_type_parameter.?;
-    }
 };
 
 fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM) {
@@ -190,7 +173,7 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
                             args[i] = .{ .s = sva };
                         } else {
                             //todo: We can throw a better exception here...
-                            guile.scm_throw(Procedure.symbolTypeParameter().s, List.init(.{ String.fromUTF8(std.fmt.comptimePrint("Not a {s} at index {d}", .{ @typeName(pt), i })), Any{ .s = sva } }).s);
+                            guile.scm_throw(Procedure.symbols.get("type-parameter").s, List.init(.{ String.fromUTF8(std.fmt.comptimePrint("Not a {s} at index {d}", .{ @typeName(pt), i })), Any{ .s = sva } }).s);
                         }
                     } else if (@hasDecl(pt, "assert")) { // Foreign Types
                         pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
