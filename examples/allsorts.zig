@@ -52,31 +52,31 @@ pub fn main() !void {
 
     _ = guile.scm_call_1(gfn_display, no.s);
     _ = guile.scm_newline(out_port);
-    _ = guile.scm_display(gzzg.Number.from(30).sum(g.Number.from(12)).s, out_port);
+    _ = guile.scm_display(gzzg.Number.from(30).sum(gzzg.Number.from(12)).s, out_port);
     _ = guile.scm_newline(out_port);
 
-    const lst = g.List.init(.{ g.Number.from(5), g.Number.from(1) });
+    const lst = gzzg.List.init(.{ gzzg.Number.from(5), gzzg.Number.from(1) });
 
     _ = guile.scm_display(lst.s, out_port);
     _ = guile.scm_newline(out_port);
 
-    _ = guile.scm_display(guile.scm_append_x(g.List.init(.{ lst, g.List.init(.{ g.String.fromUTF8("a"), g.String.fromUTF8("b") }) }).s), out_port);
+    _ = guile.scm_display(guile.scm_append_x(gzzg.List.init(.{ lst, gzzg.List.init(.{ gzzg.String.fromUTF8("a"), gzzg.String.fromUTF8("b") }) }).s), out_port);
     _ = guile.scm_newline(out_port);
 
     _ = guile.scm_display(lst.s, out_port);
     _ = guile.scm_newline(out_port);
 
-    const la = g.List.init(.{ g.Number.from(5), g.Number.from(2) });
+    const la = gzzg.List.init(.{ gzzg.Number.from(5), gzzg.Number.from(2) });
     gzzg.display(la);
     gzzg.newline();
 
-    if (g.Number.from(5).divide(g.Number.from(0))) |v| {
+    if (gzzg.Number.from(5).divide(gzzg.Number.from(0))) |v| {
         std.debug.print("{}\n", .{v});
     } else |_| {
         std.debug.print("error div zero catched\n", .{});
     }
     gzzg.newline();
-    gzzg.display(g.String.fromUTF8("It Worked!\n"));
+    gzzg.display(gzzg.String.fromUTF8("It Worked!\n"));
 
     const dbz = gzzg.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
 
@@ -84,7 +84,7 @@ pub fn main() !void {
 }
 
 fn divideByZero() !gzzg.Number {
-    const a = try gzzg.Number.from(10).divide(g.Number.from(0));
+    const a = try gzzg.Number.from(10).divide(gzzg.Number.from(0));
 
     return a.sum(gzzg.Number.from(2));
 }
