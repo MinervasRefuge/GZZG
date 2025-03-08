@@ -1,7 +1,6 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
 
-const std       = @import("std");
 pub const guile = @import("guile");
 
 pub const GuileGCAllocator = @import("Allocator.zig");
