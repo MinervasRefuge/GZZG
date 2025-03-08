@@ -2,6 +2,8 @@
 // zig fmt: off
 
 const std   = @import("std");
+const string_encodings = @import("string_encoding.zig");
+const bopts = @import("build_options");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 const iw    = gzzg.internal_workings;
@@ -20,8 +22,8 @@ pub const Character = struct {
     pub fn fromWideZ(a: i32) Character { return .{ .s = guile.SCM_MAKE_CHAR(a) }; }
     pub fn fromZ(a: u8) Character { return fromWideZ(@intCast(a)); }
 
-    pub fn toWideZ(a: Character) i32 { return a.toNumber().toZ(i32); } // Macro broken guile.SCM_CHAR(a.s);
-    pub fn toZ(a: Character) u8 { return a.toNumber().toZ(u8); }
+    pub fn toWideZ(a: Character) u21 { return @truncate(a.toNumber().toZ(u32)); } // Macro broken guile.SCM_CHAR(a.s);
+    pub fn toZ(a: Character) !U8CharSlice { return .toUTF8(a.toWideZ()); }
 
     pub fn toNumber(a: Character) Number { return .{ .s = guile.scm_char_to_integer(a.s) }; }
     
@@ -54,6 +56,39 @@ pub const Character = struct {
     pub fn greaterThanCI     (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_gr_p(x.s, y.s) }; }
     pub fn lessThanEqualCI   (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_leq_p(x.s, y.s) }; }
     pub fn greaterThanEqualCI(x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_ci_geq_p(x.s, y.s) }; }
+
+    //
+
+    pub fn format(value: Character, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = fmt;
+        _ = options;
+        try writer.writeAll(if (value.toZ())
+                                |slice| slice.getConst()
+                            else
+                                |_| &string_encodings.UTF32.replacement_character);
+    }
+    
+    pub const U8CharSlice = struct {
+        buffer: [4] u8,
+        count: u3,
+
+        pub fn getOne(self: *const @This()) u8 {
+            if (self.count != 1)
+                @panic("Attempted to get a char that wasn't one byte long");
+
+            return self.buffer[0];
+        }
+        
+        pub fn getConst(self: *const @This()) []const u8 {
+            return self.buffer[0..self.count];
+        }
+
+        pub fn toUTF8(char: u21) !U8CharSlice {
+            var slice: U8CharSlice = .{.buffer = undefined, .count = 0};
+            slice.count = try std.unicode.utf8Encode(char, slice.buffer[0..]);
+            return slice;
+        }
+    };
 };
 
 //                                      --------------------
@@ -124,6 +159,7 @@ pub const String = struct {
         return @ptrCast(@as([*]const T, @ptrCast(&s.strbuf.buffer))[0..s.strbuf.len]);
     }
 
+    // todo: remove pub
     pub fn getInternalStringSize(a: String) enum { narrow, wide } {
         const s: *align(8) Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
@@ -131,7 +167,7 @@ pub const String = struct {
     }
 
     pub fn toUTF8(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        return if (@import("build_options").enable_direct_string_access)
+        return if (bopts.enable_direct_string_access)
             toUTF8Direct(a, allocator)
         else
             toUTF8Copy(a, allocator);
@@ -151,164 +187,38 @@ pub const String = struct {
 
     // direct mem access
     fn toUTF8Direct(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        // Codepoint ranges vs utf8 encoding
-        //
-        // 0x00000000 - 0x0000007F:
-        //     0xxxxxxx
-        //
-        // 0x00000080 - 0x000007FF:
-        //     110xxxxx 10xxxxxx
-        //
-        // 0x00000800 - 0x0000FFFF:
-        //     1110xxxx 10xxxxxx 10xxxxxx
-        //
-        // 0x00010000 - 0x001FFFFF:
-        //     11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-
         if (!isDirect(iw.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
 
-        switch (a.getInternalStringSize()) {
-            .narrow => { // Latin-1
-                // Latin-1 matches the same order of points as UTF-32/UCS-4
-                const str_latin = a.getInternalBuffer(u8);
-
-                var len_utf8: usize = 0;
-                var multibyte_utf8 = false;
-                for (0..str_latin.len) |ll| {
-                    if (str_latin[ll] <= 0x7F) {
-                        len_utf8 += 1;
-                    } else {
-                        multibyte_utf8 = true;
-                        len_utf8 += 2;
-                    }
-                }
-
-                var str_utf8: [:0]u8 = @ptrCast(try allocator.alloc(u8, len_utf8));
-                errdefer allocator.free(str_utf8);
-
-                if (multibyte_utf8) {
-                    var pos_utf8: usize = 0;
-                    var pos_latin: usize = 0;
-
-                    while (pos_latin < str_latin.len) : ({
-                        pos_latin += 1;
-                        pos_utf8 += 1;
-                    }) {
-                        const char_latin = str_latin[pos_latin];
-
-                        switch (char_latin) {
-                            0x00...0x7F => str_utf8[pos_utf8] = char_latin,
-                            0x80...0xFF => {
-                                // Latin-1 is 1 byte => 8 bits
-                                // UTF-8 2-byte usage is...
-                                // 110---xx 10xxxxxx
-                                str_utf8[pos_utf8] = 0b11000000 | char_latin >> 6;
-                                pos_utf8 += 1;
-                                str_utf8[pos_utf8] = 0b10000000 | (char_latin & 0b00111111);
-                            },
-                        }
-                    }
-
-                    //assert len written
-
-                } else {
-                    @memcpy(str_utf8, str_latin);
-                }
-
-                // double checking even though the source str is null terminated
-                str_utf8[len_utf8] = 0;
-                return str_utf8;
-            },
-            .wide => {
-                const str_utf32 = a.getInternalBuffer(u32);
-
-                var len_utf8: usize = 0;
-                for (0..str_utf32.len) |ll| {
-                    len_utf8 += switch (str_utf32[ll]) {
-                        0x00000000...0x0000007F => 1,
-                        0x00000080...0x000007FF => 2,
-                        0x00000800...0x0000FFFF => 3,
-                        0x00010000...0x001FFFFF => 4,
-                        else => return error.scmStringNotValidUnicode,
-                    };
-                }
-
-                var str_utf8: [:0]u8 = @ptrCast(try allocator.alloc(u8, len_utf8));
-                errdefer allocator.free(str_utf8);
-
-                var pos_utf8: usize = 0;
-                var pos_utf32: usize = 0;
-
-                while (pos_utf32 < str_utf32.len) : ({
-                    pos_utf32 += 1;
-                    pos_utf8 += 1;
-                }) {
-                    const char_utf32 = str_utf32[pos_utf32];
-
-                    switch (char_utf32) {
-                        0x00000000...0x0000007F => str_utf8[pos_utf8] = @truncate(char_utf32),
-                        0x00000080...0x000007FF => {
-                            // 110xxxxx 10xxxxxx
-                            str_utf8[pos_utf8] = 0b11000000 |
-                                @as(u8, @truncate(char_utf32 >> 6));
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
-                        },
-                        0x00000800...0x0000FFFF => {
-                            // 1110xxxx 10xxxxxx 10xxxxxx
-                            str_utf8[pos_utf8] = 0b11100000 |
-                                @as(u8, @truncate(char_utf32 >> 12));
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32 >> 6)) & 0b00111111);
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
-                        },
-                        0x00010000...0x001FFFFF => {
-                            // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-                            str_utf8[pos_utf8] = 0b11110000 |
-                                @as(u8, @truncate(char_utf32 >> 18));
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32 >> 12)) & 0b00111111);
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32 >> 6)) & 0b00111111);
-                            
-                            pos_utf8 += 1;
-                            str_utf8[pos_utf8] = 0b10000000 |
-                                (@as(u8, @truncate(char_utf32)) & 0b00111111);
-                        },
-                        else => unreachable, // as per previous switch panic
-                    }
-                }
-
-                //assert len written
-
-                // double checking even though the source str is null terminated
-                str_utf8[len_utf8] = 0;
-                return str_utf8;
-            },
-        }
+        return switch (a.getInternalStringSize()) {
+            .narrow => string_encodings.Latin1.toUTF8(allocator, a.getInternalBuffer(u8)),
+            .wide   => string_encodings.UTF32 .toUTF8(allocator, a.getInternalBuffer(u32))
+        };
     }
 
     // todo: add direct verions
     // todo: consider if the format fn should: exist, display or write
     // todo: format options
-    //pub fn format(value: String, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-    pub fn format(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+    pub fn format(value: String, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        if (bopts.enable_direct_string_access) {
+            try formatFast(value, fmt, options, writer);
+        } else {
+            try formatSlow(value, fmt, options, writer);
+        }
+    }
+
+    fn formatSlow(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var iter = value.iterator();
 
         while (iter.next()) |chr| {
-            _ = try writer.write(&.{chr.toZ()});
+            try std.fmt.format(writer, "{}", .{chr});            
         }
+    }
+    
+    fn formatFast(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        return switch (value.getInternalStringSize()) {
+            .narrow => string_encodings.Latin1.writeToUTF8(value.getInternalBuffer(u8) , writer),
+            .wide   => string_encodings.UTF32 .writeToUTF8(value.getInternalBuffer(u32), writer)
+        };
     }
 
     pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }

@@ -5,9 +5,10 @@ const std   = @import("std");
 const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
-const gexpect = @import("tests.zig").gexpect;
-const expect  = std.testing.expect;
-const print   = std.debug.print;
+const gexpect            = @import("tests.zig").gexpect;
+const expect             = std.testing.expect;
+const expectEqualStrings = std.testing.expectEqualStrings;
+const print              = std.debug.print;
 
 const Char   = gzzg.Character;
 const Number = gzzg.Number;
@@ -26,7 +27,7 @@ test "guile string from/to narrow" {
     const gstr = String.fromUTF8(str);
     const out = try gstr.toUTF8(fba.allocator());
 
-    try expect(std.mem.eql(u8, str, out));
+    try expectEqualStrings(str, out);
 
     const str2 =
         \\There is something delicious about writing the first words
@@ -37,7 +38,16 @@ test "guile string from/to narrow" {
     const gstr2 = String.fromUTF8(str2);
     const out2 = try gstr2.toUTF8(fba.allocator());
 
-    try expect(std.mem.eql(u8, str2, out2));
+    try expectEqualStrings(str2, out2);
+
+    var fbs = std.io.fixedBufferStream(&buffer);
+    try std.fmt.format(fbs.writer(), "{}", .{gstr});
+    try expectEqualStrings(str, fbs.getWritten());
+
+    fbs.reset();
+    
+    try std.fmt.format(fbs.writer(), "{}", .{gstr2});
+    try expectEqualStrings(str2, fbs.getWritten());
 }
 
 test "guile string from/to wide" {
@@ -90,7 +100,12 @@ test "guile string from/to wide" {
     try expect(gstr.getInternalStringSize() == .wide);
 
     const out = try gstr.toUTF8(fba.allocator());
-    try expect(std.mem.eql(u8, str, out));
+    try expectEqualStrings(str, out);
+
+    var fbs = std.io.fixedBufferStream(&buffer);
+    try std.fmt.format(fbs.writer(), "{}", .{gstr});
+    
+    try expectEqualStrings(str, fbs.getWritten());
 }
 
 test "guile string ref" {
@@ -130,6 +145,6 @@ test "guile string iter" {
 
     var idx: usize = 0;
     while (itr.next()) |c| : (idx += 1) {
-        try expect(c.toZ() == str[idx]);
+        try expect((try c.toZ()).getOne() == str[idx]);
     }
 }
