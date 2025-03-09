@@ -7,9 +7,6 @@ const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 const iw    = gzzg.internal_workings;
 
-const encoding = iw.string.encoding;
-const CharacterWidth = iw.string.encoding.CharacterWidth;
-
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number  = gzzg.Number;
@@ -68,7 +65,7 @@ pub const Character = struct {
         try writer.writeAll(if (value.toZ())
                                 |slice| slice.getConst()
                             else
-                                |_| &encoding.UTF32.replacement_character);
+                                |_| &iw.string.encoding.UTF32.replacement_character);
     }
     
     pub const U8CharSlice = struct {
@@ -118,10 +115,6 @@ pub const String = struct {
     // Only other way is via internal fns and/~ external char encoding libs.
     // `scm_i_string_chars (SCM str)` is public but has been marked for changing to internal only.
 
-    // Note this code could be fragile ⚠
-    const StrBuf = packed struct { tag: iw.SCMBits, len: usize, buffer: u8 };
-    const Layout = packed struct { tag: iw.SCMBits, strbuf: *align(8) StrBuf };
-
     // string tests required
     // expect cons tag
     // expect cons.0 to be a string tag
@@ -151,22 +144,19 @@ pub const String = struct {
             iw.getTCFor(iw.TC7, v0) == .stringbuf;
     }
 
-    fn getInternalBuffer(a: String, T: type) [:0]const T {
-        switch (T) {
-            u8, u21, u32 => {},
-            else => @compileError("Invalid internal string type: " ++ @typeName(T)),
-        }
+    fn getInternalBuffer(a: String) iw.string.BufferSlice {
+        const s: *align(8) iw.string.Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
-        const s: *align(8) Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
-
-        return @ptrCast(@as([*]const T, @ptrCast(&s.strbuf.buffer))[0..s.strbuf.len]);
+        return s.buffer.strbuf.getSlice();
     }
 
     // todo: remove pub
-    pub fn getInternalStringSize(a: String) CharacterWidth {
-        const s: *align(8) Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
+    // todo: remove completly
+    pub fn getInternalStringSize(a: String) iw.string.encoding.CharacterWidth {
+        const s: *align(8) iw.string.Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
-        return if (s.strbuf.tag & guile.SCM_I_STRINGBUF_F_WIDE != 0) .wide else .narrow;
+        // Todo: consider shared strings
+        return s.buffer.strbuf.tag.width;
     }
 
     pub fn toUTF8(a: String, allocator: std.mem.Allocator) ![:0]u8 {
@@ -192,9 +182,9 @@ pub const String = struct {
     fn toUTF8Direct(a: String, allocator: std.mem.Allocator) ![:0]u8 {
         if (!isDirect(iw.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
 
-        return switch (a.getInternalStringSize()) {
-            .narrow => encoding.Latin1.toUTF8(allocator, a.getInternalBuffer(u8)),
-            .wide   => encoding.UTF32 .toUTF8(allocator, a.getInternalBuffer(u32))
+        return switch (a.getInternalBuffer()) {
+            .narrow => |n| iw.string.encoding.Latin1.toUTF8(allocator, n),
+            .wide   => |w| iw.string.encoding.UTF32 .toUTF8(allocator, w)
         };
     }
 
@@ -218,9 +208,9 @@ pub const String = struct {
     }
     
     fn formatFast(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        return switch (value.getInternalStringSize()) {
-            .narrow => encoding.Latin1.writeToUTF8(value.getInternalBuffer(u8) , writer),
-            .wide   => encoding.UTF32 .writeToUTF8(value.getInternalBuffer(u32), writer)
+        return switch (value.getInternalBuffer()) {
+            .narrow => |n| iw.string.encoding.Latin1.writeToUTF8(n, writer),
+            .wide   => |w| iw.string.encoding.UTF32 .writeToUTF8(w, writer)
         };
     }
 

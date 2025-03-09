@@ -156,8 +156,8 @@ test "guile static string .narrow" {
     gzzg.initThreadForGuile();
 
     const str = "Smoke me a kipper, I'll be back for breakfast";
-    const strbuf = iw_string.staticStringBuffer(str);
-    const layout = iw_string.Layout{
+    const strbuf align(8) = iw_string.staticBuffer(str);
+    const layout align(8) = iw_string.Layout{
         .tag = .init(false, true),
         .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
         .start = 0,
@@ -180,9 +180,24 @@ test "guile static string .wide" {
 
     const u = std.unicode;
 
-    const str = "🨄🨃🨀🨁🨅🨅🨅";
-    const strbuf = iw_string.staticStringBuffer(str);
-    const layout = iw_string.Layout{
+    // Qrrc Oyhr–Xnfcnebi, 1996, eq 1
+    // ♔♕♖♗♘♙
+    // ♚♛♜♝♞♟
+    const str =
+        \\    abcdefgh
+        \\   ╔════════╗
+        \\ 8 ║        ║
+        \\ 7 ║       ♜║
+        \\ 6 ║     ♕ ♔║
+        \\ 5 ║   ♛  ♞ ║
+        \\ 4 ║   ♙    ║
+        \\ 3 ║♟♟   ♙♟♟║
+        \\ 2 ║     ♘ ♚║
+        \\ 1 ║    ♖   ║
+        \\   ╚════════╝ 
+    ;
+    const strbuf align(8) = iw_string.staticBuffer(str);
+    const layout align(8) = iw_string.Layout{
         .tag = .init(false, true),
         .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
         .start = 0,

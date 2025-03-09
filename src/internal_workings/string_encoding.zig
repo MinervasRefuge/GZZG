@@ -11,6 +11,8 @@ const utf8EncodeComptime          = std.unicode.utf8EncodeComptime;
 
 const UTF8Errors = error{InvalidUtf8, TruncatedInput, Utf8InvalidStartByte, Utf8DecodeError};
 
+// todo: Clean up unused fns
+
 // Guile stringbufs are either...
 // - narrow (Latin1)
 // - wide (UCS-4/UTF-32)
