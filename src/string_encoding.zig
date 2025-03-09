@@ -8,9 +8,58 @@ const utf8CountCodepoints         = std.unicode.utf8CountCodepoints;
 const utf8Encode                  = std.unicode.utf8Encode;
 const utf8EncodeComptime          = std.unicode.utf8EncodeComptime;
 
+
+const UTF8Errors = error{InvalidUtf8, TruncatedInput, Utf8InvalidStartByte, Utf8DecodeError};
+
 // Guile stringbufs are either...
 // - narrow (Latin1)
 // - wide (UCS-4/UTF-32)
+
+pub const CharacterWidth = enum(u1) {
+    narrow = 0,
+    wide = 1,
+
+    pub fn fits(str_utf8: []const u8) error{InvalidUtf8}!@This() {
+        const view = try Utf8View.init(str_utf8);
+        var iter = view.iterator();
+
+        while (iter.nextCodepoint()) |codepoint| {
+            if (codepoint > 0xFF)
+                return .wide;
+        }
+
+        return .narrow;
+    }
+
+    pub fn backingType(comptime self: @This()) type {
+        return switch(self) {
+            .narrow => u8,
+            .wide => u32,
+        };
+    }
+
+    pub fn lenIn(self: @This(), comptime str_utf8:[] const u8) usize {
+        return switch(self) {
+            .narrow => Latin1.lenInLatin1Comptime(str_utf8), 
+            .wide => UTF32.lenInUTF32(str_utf8),
+        };
+    }
+
+    pub fn encode(comptime self: @This(), str_utf8:[]const u8, str_encoded:[] self.backingType()) !usize {
+        return switch (self) {
+            .narrow => Latin1.toStr(str_utf8, str_encoded),
+            .wide => UTF32.toStr(str_utf8, str_encoded)
+        };
+    }
+
+    pub fn encodeComptime(comptime self: @This(), comptime str_utf8:[]const u8) [self.lenIn(str_utf8):0] self.backingType() {
+        return switch (self) {
+            .narrow => Latin1.comptimeStr(str_utf8),
+            .wide => UTF32.comptimeStr(str_utf8)
+        };
+    }
+};
+
 
 pub const Latin1 = struct {
     // Latin1 (u8) is composed of the following Unicode Blocks,
@@ -89,34 +138,71 @@ pub const Latin1 = struct {
         return @ptrCast(str_utf8[0..len_utf8]);
     }
     
-    fn lenInLatin1(str_utf8: [] const u8) usize {
-        return utf8CountCodepoints(str_utf8) catch |err| @compileError(@errorName(err));
+    pub fn lenInLatin1(str_utf8: []const u8) (error{NotLatin1Compatible} || UTF8Errors)!usize {
+        const width = try CharacterWidth.fits(str_utf8);
+        if (width == .wide)
+            return error.NotLatin1Compatible;
+        
+        return utf8CountCodepoints(str_utf8);
     }
     
-    pub fn comptimeStr(comptime str_utf8: [] const u8) [lenInLatin1(str_utf8)] u8 {
-        const len_latin1 = lenInLatin1(str_utf8);
-        const str_latin1: [len_latin1] u8 = undefined;
-        
-        const view = Utf8View.initComptime(str_utf8);
-        var iter = view.iterator();
-        var pos_latin1 = 0;
+    pub inline fn lenInLatin1Comptime(comptime str_utf8: []const u8) comptime_int {
+        comptime {
+            const width = CharacterWidth.fits(str_utf8) catch |err| @compileError(@errorName(err));
+            if (width == .wide)
+                @compileError("Not a latin-1 compatable string");
+            return utf8CountCodepoints(str_utf8) catch |err| @compileError(@errorName(err));
+        }
+    }
+    
+    pub fn comptimeStr(comptime str_utf8:[]const u8) [lenInLatin1Comptime(str_utf8):0] u8 {
+        comptime {
+            const len_latin1 = lenInLatin1Comptime(str_utf8);
+            var str_latin1: [len_latin1:0] u8 = undefined;
+            
+            const view = Utf8View.initComptime(str_utf8);
+            var iter = view.iterator();
+            var pos_latin1:usize = 0;
 
+            @setEvalBranchQuota(100000);
+            while (iter.nextCodepoint()) |codepoint| {
+                if (codepoint > 0xFF)
+                    @compileError("Unicode doesn't fit inside Latin-1: " ++
+                                      utf8EncodeComptime(codepoint));
+                
+                str_latin1[pos_latin1] = @truncate(codepoint);
+                pos_latin1 += 1;
+            }
+            
+            if (pos_latin1 != len_latin1)
+                @compileError("Oh no");
+            
+            return str_latin1;
+        }
+    }
+
+    pub fn toStr(str_utf8:[]const u8, str_latin1:[] u8) error{InvalidUtf8, NotLatin1Compatible, NoSpaceLeft}!usize {
+        const view = try Utf8View.init(str_utf8);
+        var iter = view.iterator();
+        var pos_latin1:usize = 0;
+        
         while (iter.nextCodepoint()) |codepoint| {
+            if (pos_latin1 >= str_latin1.len)
+                return error.NoSpaceLeft;
+            
             if (codepoint > 0xFF)
-                @compileError("Unicode doesn't fit inside Latin-1");
+                return error.NotLatin1Compatible;
             
             str_latin1[pos_latin1] = @truncate(codepoint);
             pos_latin1 += 1;
         }
         
-        if (pos_latin1 != len_latin1)
-            @compileError("Oh no");
-
-        return str_latin1;
+        return pos_latin1;
     }
 };
 
-pub const UTF32 = struct {
+
+pub const UTF32 = struct {    
     pub const replacement_character = utf8EncodeComptime(std.unicode.replacement_character);
     
     pub fn writeToUTF8(str_utf32: []const u32, writer: anytype) @TypeOf(writer).Error!void {
@@ -157,13 +243,13 @@ pub const UTF32 = struct {
         
     }
     
-    fn lenInUTF32(str_utf8: [] const u8) usize {
-        return utf8CountCodepoints(str_utf8) catch |err| @compileError(@errorName(err));
+    pub inline fn lenInUTF32(comptime str_utf8: [] const u8) comptime_int {
+        return comptime utf8CountCodepoints(str_utf8) catch |err| @compileError(@errorName(err));
     }
     
-    pub fn comptimeStr(comptime str_utf8: [] const u8) [lenInUTF32(str_utf8)] u32 {
+    pub fn comptimeStr(comptime str_utf8: [] const u8) [lenInUTF32(str_utf8):0] u32 {
         const len_utf32 = lenInUTF32(str_utf8);
-        const str_utf32: [len_utf32] u32 = undefined;
+        const str_utf32: [len_utf32:0] u32 = undefined;
     
         const view = Utf8View.initComptime(str_utf8);
         var iter = view.iterator();
@@ -178,5 +264,21 @@ pub const UTF32 = struct {
             @compileError("Oh no");
     
         return str_utf32;
+    }
+
+    pub fn toStr(str_utf8:[]const u8, str_utf32:[] u32) error{InvalidUtf8, NoSpaceLeft}!usize {
+        const view = try Utf8View.init(str_utf8);
+        var iter = view.iterator();
+        var pos_utf32:usize = 0;
+        
+        while (iter.nextCodepoint()) |codepoint| {
+            if (pos_utf32 >= str_utf32.len)
+                return error.NoSpaceLeft;
+            
+            str_utf32[pos_utf32] = codepoint;
+            pos_utf32 += 1;
+        }
+
+        return pos_utf32;
     }
 };

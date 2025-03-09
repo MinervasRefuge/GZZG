@@ -8,6 +8,7 @@ const guile = gzzg.guile;
 const gexpect            = @import("tests.zig").gexpect;
 const expect             = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
+const expectEqual        = std.testing.expectEqual;
 const print              = std.debug.print;
 
 const Char   = gzzg.Character;
@@ -148,3 +149,66 @@ test "guile string iter" {
         try expect((try c.toZ()).getOne() == str[idx]);
     }
 }
+
+
+test "guile static string .narrow" {
+    gzzg.initThreadForGuile();
+
+    const str = "Smoke me a kipper, I'll be back for breakfast";
+    const strbuf = gzzg.string.staticStringBuffer(str);
+    const layout = gzzg.string.StringLayout{
+        .tag = .init(false, true),
+        .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
+        .start = 0,
+        .len = strbuf.len
+    };
+
+    const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
+
+    try expectEqual(str.len, gstr.lenZ());
+
+    var itr = gstr.iterator();
+    var idx: usize = 0;
+    while (itr.next()) |c| : (idx += 1) {
+        try expectEqual(str[idx], (try c.toZ()).getOne());
+    }
+}
+
+test "guile static string .wide" {
+    gzzg.initThreadForGuile();
+
+    const u = std.unicode;
+
+    const str = "🨄🨃🨀🨁🨅🨅🨅";
+    const strbuf = gzzg.string.staticStringBuffer(str);
+    const layout = gzzg.string.StringLayout{
+        .tag = .init(false, true),
+        .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
+        .start = 0,
+        .len = strbuf.len
+    };
+
+    const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
+
+    try expectEqual(try u.utf8CountCodepoints(str), gstr.lenZ());
+
+    var view = try u.Utf8View.init(str);
+    var itr = view.iterator();
+    var gitr = gstr.iterator();
+
+    var gchar:?Char = gitr.next();
+    var char:?[] const u8 = itr.nextCodepointSlice();
+    while (true) : ({
+        gchar = gitr.next();
+        char  = itr.nextCodepointSlice();
+    }) {
+        if (gchar == null and char == null)
+            break;
+        
+        if (gchar == null or char == null) 
+            return error.DoNotMatch;
+
+        try expectEqualStrings(char.?, (try gchar.?.toZ()).getConst());   
+    }
+}
+
