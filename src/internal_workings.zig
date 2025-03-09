@@ -314,3 +314,30 @@ pub fn makeFixNum(i: FixNum) SCM {
     
     return @ptrFromInt(scm);
 }
+
+
+//
+//
+//
+
+pub fn assertTagSize(tag: type) void {
+    if (@sizeOf(tag) != @sizeOf(SCMBits) or @bitSizeOf(tag) != @bitSizeOf(SCMBits)) {
+        @compileError("Tag isn't a valid size");
+    }
+}
+
+pub fn Padding(size: comptime_int) type {
+    const T = std.builtin.Type;    
+    
+    return @Type(.{
+        .@"enum" = .{
+            .tag_type = std.meta.Int(.unsigned, size),
+            .fields = &[_]T.EnumField{.{.name = "nil", .value = 0}},
+            .decls = &[_]T.Declaration{},
+            .is_exhaustive = true,
+        }
+    });
+}
+
+
+pub const string = @import("internal_workings/string.zig");

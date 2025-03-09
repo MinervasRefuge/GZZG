@@ -4,6 +4,7 @@
 const std   = @import("std");
 const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
+const iw_string = gzzg.internal_workings.string;
 
 const gexpect            = @import("tests.zig").gexpect;
 const expect             = std.testing.expect;
@@ -155,8 +156,8 @@ test "guile static string .narrow" {
     gzzg.initThreadForGuile();
 
     const str = "Smoke me a kipper, I'll be back for breakfast";
-    const strbuf = gzzg.string.staticStringBuffer(str);
-    const layout = gzzg.string.StringLayout{
+    const strbuf = iw_string.staticStringBuffer(str);
+    const layout = iw_string.Layout{
         .tag = .init(false, true),
         .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
         .start = 0,
@@ -180,8 +181,8 @@ test "guile static string .wide" {
     const u = std.unicode;
 
     const str = "🨄🨃🨀🨁🨅🨅🨅";
-    const strbuf = gzzg.string.staticStringBuffer(str);
-    const layout = gzzg.string.StringLayout{
+    const strbuf = iw_string.staticStringBuffer(str);
+    const layout = iw_string.Layout{
         .tag = .init(false, true),
         .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
         .start = 0,
