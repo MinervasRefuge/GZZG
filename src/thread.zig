@@ -14,7 +14,7 @@ const Smob    = gzzg.Smob;
 //                                         Thread §6.22.1
 //                                         --------------
 
-const Thread = struct {
+pub const Thread = struct {
     s: guile.SCM,
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_thread_p(a) }; }

@@ -144,7 +144,7 @@ pub const String = struct {
             iw.getTCFor(iw.TC7, v0) == .stringbuf;
     }
 
-    fn getInternalBuffer(a: String) iw.string.BufferSlice {
+    fn getInternalBuffer(a: String) iw.string.encoding.CharacterWidth.BufferSlice {
         const s: *align(8) iw.string.Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
 
         return s.buffer.strbuf.getSlice();

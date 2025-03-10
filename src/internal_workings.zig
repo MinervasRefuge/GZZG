@@ -341,3 +341,8 @@ pub fn Padding(size: comptime_int) type {
 
 
 pub const string = @import("internal_workings/string.zig");
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}
+

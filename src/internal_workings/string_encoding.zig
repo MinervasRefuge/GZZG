@@ -9,7 +9,16 @@ const utf8Encode                  = std.unicode.utf8Encode;
 const utf8EncodeComptime          = std.unicode.utf8EncodeComptime;
 
 
-const UTF8Errors = error{InvalidUtf8, TruncatedInput, Utf8InvalidStartByte, Utf8DecodeError};
+const UTF8Errors = error{
+    InvalidUtf8,
+    TruncatedInput,
+    Utf8InvalidStartByte,
+    Utf8DecodeError,
+    Utf8ExpectedContinuation,
+    Utf8OverlongEncoding,
+    Utf8EncodesSurrogateHalf,
+    Utf8CodepointTooLarge
+};
 
 // todo: Clean up unused fns
 
@@ -18,10 +27,12 @@ const UTF8Errors = error{InvalidUtf8, TruncatedInput, Utf8InvalidStartByte, Utf8
 // - wide (UCS-4/UTF-32)
 
 pub const CharacterWidth = enum(u1) {
+    const Self = @This();
+    
     narrow = 0,
     wide = 1,
 
-    pub fn fits(str_utf8: []const u8) error{InvalidUtf8}!@This() {
+    pub fn fits(str_utf8: []const u8) error{InvalidUtf8}!Self {
         const view = try Utf8View.init(str_utf8);
         var iter = view.iterator();
 
@@ -33,33 +44,64 @@ pub const CharacterWidth = enum(u1) {
         return .narrow;
     }
 
-    pub fn backingType(comptime self: @This()) type {
+    pub fn backingType(comptime self: Self) type {
         return switch(self) {
             .narrow => u8,
             .wide => u32,
         };
     }
 
-    pub fn lenIn(self: @This(), comptime str_utf8:[] const u8) usize {
+    pub fn lenIn(self: Self, str_utf8:[] const u8) !usize {
         return switch(self) {
-            .narrow => Latin1.lenInLatin1Comptime(str_utf8), 
+            .narrow => Latin1.lenInLatin1(str_utf8), 
             .wide => UTF32.lenInUTF32(str_utf8),
         };
     }
+    
+    pub fn lenInComptime(self: Self, comptime str_utf8:[] const u8) usize {
+        return switch(self) {
+            .narrow => Latin1.lenInLatin1Comptime(str_utf8), 
+            .wide => UTF32.lenInUTF32Comptime(str_utf8),
+        };
+    }
 
-    pub fn encode(comptime self: @This(), str_utf8:[]const u8, str_encoded:[] self.backingType()) !usize {
+    pub fn encode(allocator: std.mem.Allocator, str_utf8:[]const u8) !BufferSlice {
+        switch (try fits(str_utf8)) {
+            inline else => |w| {
+                const buffer = try allocator.alloc(w.backingType(),
+                                                   1 + (w.lenIn(str_utf8) catch unreachable));
+                const written =  w.encodeStatic(str_utf8, buffer) catch unreachable;
+                std.debug.assert(written == buffer.len - 1);
+
+                buffer[buffer.len-1] = 0;
+
+                // todo: better way of going enum -> union field?
+                return switch (w) {
+                    .narrow => |nn| .{ .narrow = @as([:0]nn.backingType(), @ptrCast(buffer[0..buffer.len-1])) },
+                    .wide => |ww| .{ .wide = @as([:0]ww.backingType(), @ptrCast(buffer[0..buffer.len-1]))},
+                };
+            },
+        }
+    }
+    
+    pub fn encodeStatic(comptime self: Self, str_utf8:[]const u8, str_encoded:[] self.backingType()) !usize {
         return switch (self) {
             .narrow => Latin1.toStr(str_utf8, str_encoded),
             .wide => UTF32.toStr(str_utf8, str_encoded)
         };
     }
 
-    pub fn encodeComptime(comptime self: @This(), comptime str_utf8:[]const u8) [self.lenIn(str_utf8):0] self.backingType() {
+    pub fn encodeComptime(comptime self: Self, comptime str_utf8:[]const u8) [self.lenInComptime(str_utf8):0] self.backingType() {
         return switch (self) {
             .narrow => Latin1.comptimeStr(str_utf8),
             .wide => UTF32.comptimeStr(str_utf8)
         };
     }
+
+    pub const BufferSlice = union(Self) {
+        narrow: [:0]Self.narrow.backingType(),
+        wide: [:0]Self.wide.backingType(),
+    };
 };
 
 
@@ -244,14 +286,18 @@ pub const UTF32 = struct {
         return @ptrCast(str_utf8[0..len_utf8]);
         
     }
+
+    pub fn lenInUTF32(str_utf8: []const u8) !usize {
+        return utf8CountCodepoints(str_utf8);
+    }
     
-    pub inline fn lenInUTF32(comptime str_utf8: [] const u8) comptime_int {
+    pub inline fn lenInUTF32Comptime(comptime str_utf8: [] const u8) comptime_int {
         return comptime utf8CountCodepoints(str_utf8) catch |err| @compileError(@errorName(err));
     }
     
-    pub fn comptimeStr(comptime str_utf8: [] const u8) [lenInUTF32(str_utf8):0] u32 {
-        const len_utf32 = lenInUTF32(str_utf8);
-        const str_utf32: [len_utf32:0] u32 = undefined;
+    pub fn comptimeStr(comptime str_utf8: [] const u8) [lenInUTF32Comptime(str_utf8):0] u32 {
+        const len_utf32 = lenInUTF32Comptime(str_utf8);
+        var str_utf32: [len_utf32:0] u32 = undefined;
     
         const view = Utf8View.initComptime(str_utf8);
         var iter = view.iterator();

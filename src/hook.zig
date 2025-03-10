@@ -12,7 +12,7 @@ const Boolean = gzzg.Boolean;
 //                                           Hook §6.9.6
 //                                           -----------
 
-const Hook = struct {
+pub const Hook = struct {
     s: guile.SCM,
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_hook_p(a) }; }

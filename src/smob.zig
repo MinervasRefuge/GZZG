@@ -14,7 +14,7 @@ const Boolean = gzzg.Boolean;
 //                                           Smob §6.21
 //                                           ----------
 
-const Smob = struct {
+pub const Smob = struct {
     s: guile.SCM,
 
     pub fn is (a: guile.SCM) Boolean { return Boolean.from(isZ(a)); }

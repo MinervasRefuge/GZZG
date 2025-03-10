@@ -5,6 +5,7 @@ const std            = @import("std");
 const iw             = @import("../internal_workings.zig");
 pub const encoding   = @import("string_encoding.zig");
 const CharacterWidth = encoding.CharacterWidth;
+const BufferSlice    = encoding.CharacterWidth.BufferSlice;
 const Padding        = iw.Padding;
 const assertTagSize  = iw.assertTagSize;
 
@@ -45,11 +46,6 @@ pub const Layout = extern struct {
     };
 };
 
-pub const BufferSlice = union(encoding.CharacterWidth) {
-    narrow: [:0]CharacterWidth.narrow.backingType(),
-    wide: [:0]CharacterWidth.wide.backingType(),
-};
-
 pub const BufferOptions = union(enum) {
     ambiguous,
     fixed: struct {
@@ -83,7 +79,7 @@ pub fn Buffer(options: BufferOptions) type {
                 .tag = .init(fixed.backing, false),
             };
             
-            const written = try fixed.backing.encode(str_utf8, &sb.buffer);
+            const written = try fixed.backing.encodeStatic(str_utf8, &sb.buffer);
             sb.len = written;
             sb.buffer[sb.len] = 0;
 
@@ -149,7 +145,7 @@ pub fn Buffer(options: BufferOptions) type {
 pub fn BufferFrom(comptime str_utf8:[] const u8) type {
     const backing = encoding.CharacterWidth.fits(str_utf8)
         catch |err| @compileError(@errorName(err));
-    const len_encoded = backing.lenIn(str_utf8);
+    const len_encoded = backing.lenInComptime(str_utf8);
 
     return Buffer(.{ .fixed = .{ .backing = backing, .len = len_encoded }});
 }

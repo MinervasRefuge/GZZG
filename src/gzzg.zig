@@ -95,5 +95,8 @@ pub const newlineErr              = core.newlineErr;
 pub const orUndefined             = core.orUndefined;
 pub const withContinuationBarrier = core.withContinuationBarrier;
 
-//todo: fix on move of custom implementation code;
-pub const string = @import("string.zig");
+
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}

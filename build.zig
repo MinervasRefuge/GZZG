@@ -1,17 +1,15 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+// zig fmt: off
 
-const std = @import("std");
-
+const std    = @import("std");
 const Import = std.Build.Module.Import;
 
-// zig fmt: off
 const gzzg_options = .{
     "enable_direct_string_access",
     "enable_comptime_number_creation",
     "enable_iw_smob",
     "trust_iw_consts",
 };
-// zig fmt: on
 
 pub fn build(b: *std.Build) !void {
     const module_gzzg = createModule(b);
@@ -38,8 +36,13 @@ pub fn build(b: *std.Build) !void {
     buildExamples(b, examples_step, module_gzzg);
 
     const test_step = b.step("test", "Run all the tests");
-    const test_suite = buildTests(b, test_step, module_gzzg);
-    const test_suite_nondirect = buildTests(b, test_step, module_gzzg_nondirect);
+    const test_suite_nondirect = buildExternalTests(b, test_step, module_gzzg_nondirect);
+    const test_suite           = buildExternalTests(b, &test_suite_nondirect.step, module_gzzg);
+    const test_gzzg_nondirect  = buildInternalTests(b, &test_suite.step, module_gzzg_nondirect);
+    const test_gzzg            = buildInternalTests(b, &test_gzzg_nondirect.step, module_gzzg);
+
+    //todo add to cov
+    _ = test_gzzg;
 
     //
 
@@ -120,7 +123,7 @@ fn buildExamples(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.M
     }
 }
 
-fn buildTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
+fn buildExternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
     // is there a way for it to ouput the results of running the tests like pass and fail number?
     // currently the tests are not verbose as to what they tested.
 
@@ -139,6 +142,28 @@ fn buildTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Modu
 
     return test_suite;
 }
+
+fn buildInternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
+    const test_gzzg = b.addTest(.{ //
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/gzzg.zig"),
+            .target = getTargetOptions(b),
+            .optimize = getOptimiseOptions(b),
+            .link_libc = true,
+            .single_threaded = true,
+        }),
+    });
+    
+    for (module_gzzg.import_table.keys()) |key| {
+        test_gzzg.root_module.addImport(key, module_gzzg.import_table.get(key).?);
+    }
+
+    const test_gzzg_arti = b.addRunArtifact(test_gzzg);
+    step.dependOn(&test_gzzg_arti.step);
+
+    return test_gzzg;
+}
+
 
 fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Compile, out: [:0]const u8) void {
     // Kcov works for zig via dwarf debug info. Downside is if the function is not used, it's not
