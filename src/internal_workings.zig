@@ -340,6 +340,7 @@ pub fn Padding(size: comptime_int) type {
 }
 
 
+pub const hash = @import("internal_workings/hash.zig");
 pub const string = @import("internal_workings/string.zig");
 
 test {
