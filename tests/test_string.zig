@@ -157,12 +157,7 @@ test "guile static string .narrow" {
 
     const str = "Smoke me a kipper, I'll be back for breakfast";
     const strbuf align(8) = iw_string.staticBuffer(str);
-    const layout align(8) = iw_string.Layout{
-        .tag = .init(false, true),
-        .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
-        .start = 0,
-        .len = strbuf.len
-    };
+    const layout align(8) = iw_string.Layout.init(strbuf.ambiguation(), .just_readable);
 
     const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
 
@@ -197,12 +192,7 @@ test "guile static string .wide" {
         \\   ╚════════╝ 
     ;
     const strbuf align(8) = iw_string.staticBuffer(str);
-    const layout align(8) = iw_string.Layout{
-        .tag = .init(false, true),
-        .buffer = .{ .strbuf = @constCast(@ptrCast(&strbuf)) },
-        .start = 0,
-        .len = strbuf.len
-    };
+    const layout align(8) = iw_string.Layout.init(strbuf.ambiguation(), .just_readable);
 
     const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
 

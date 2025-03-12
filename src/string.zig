@@ -7,6 +7,8 @@ const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 const iw    = gzzg.internal_workings;
 
+const orUndefined = gzzg.orUndefined;
+
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number  = gzzg.Number;
@@ -145,7 +147,7 @@ pub const String = struct {
     }
 
     fn getInternalBuffer(a: String) iw.string.encoding.CharacterWidth.BufferSlice {
-        const s: *align(8) iw.string.Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) iw.string.Layout = .from(a);
 
         return s.buffer.strbuf.getSlice();
     }
@@ -153,7 +155,7 @@ pub const String = struct {
     // todo: remove pub
     // todo: remove completly
     pub fn getInternalStringSize(a: String) iw.string.encoding.CharacterWidth {
-        const s: *align(8) iw.string.Layout = @ptrCast(iw.getSCMFrom(@intFromPtr(a.s)));
+        const s: *align(8) iw.string.Layout = .from(a);
 
         // Todo: consider shared strings
         return s.buffer.strbuf.tag.width;
@@ -171,7 +173,7 @@ pub const String = struct {
         const cstr = std.mem.span(guile.scm_to_utf8_string(a.s));
         defer std.heap.raw_c_allocator.free(cstr);
 
-        const out: [:0]u8 = @ptrCast(try allocator.alloc(u8, cstr.len));
+        const out = try allocator.allocSentinel(u8, cstr.len, 0);
 
         @memcpy(out, cstr);
 
@@ -180,11 +182,13 @@ pub const String = struct {
 
     // direct mem access
     fn toUTF8Direct(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        if (!isDirect(iw.getSCMFrom(@intFromPtr(a.s)))) return error.scmNotAString;
+        if (!isDirect(iw.gSCMtoIWSCM(a.s))) return error.scmNotAString;
 
+        const s: *align(8) iw.string.Layout = .from(a);
+        
         return switch (a.getInternalBuffer()) {
-            .narrow => |n| iw.string.encoding.Latin1.toUTF8(allocator, n),
-            .wide   => |w| iw.string.encoding.UTF32 .toUTF8(allocator, w)
+            .narrow => |n| iw.string.encoding.Latin1.toUTF8(allocator, n[s.start..][0..s.len]),
+            .wide   => |w| iw.string.encoding.UTF32 .toUTF8(allocator, w[s.start..][0..s.len])
         };
     }
 
@@ -208,9 +212,11 @@ pub const String = struct {
     }
     
     fn formatFast(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const s: *align(8) iw.string.Layout = .from(value);
+        
         return switch (value.getInternalBuffer()) {
-            .narrow => |n| iw.string.encoding.Latin1.writeToUTF8(n, writer),
-            .wide   => |w| iw.string.encoding.UTF32 .writeToUTF8(w, writer)
+            .narrow => |n| iw.string.encoding.Latin1.writeToUTF8(n[s.start..][0..s.len], writer),
+            .wide   => |w| iw.string.encoding.UTF32 .writeToUTF8(w[s.start..][0..s.len], writer)
         };
     }
 
@@ -238,6 +244,9 @@ pub const String = struct {
     pub fn refZ(a: String, k: usize)  Character { return  .{ .s = guile.scm_c_string_ref(a.s, k) }; }
     //string-refz
     //string-copy
+    pub fn substringE(a: String, start: Number, end:?Number) String {
+        return .{ .s = guile.scm_substring(a.s, start.s, orUndefined(end)) };
+    }
     //substring
     //substring/shared
     //substring/copy
