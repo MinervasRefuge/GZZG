@@ -1,14 +1,15 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
 
-const std            = @import("std");
-const gzzg           = @import("../gzzg.zig");
-const iw             = @import("../internal_workings.zig");
-pub const encoding   = @import("string_encoding.zig");
-const CharacterWidth = encoding.CharacterWidth;
-const BufferSlice    = encoding.CharacterWidth.BufferSlice;
-const Padding        = iw.Padding;
-const assertTagSize  = iw.assertTagSize;
+const std                 = @import("std");
+const gzzg                = @import("../gzzg.zig");
+const iw                  = @import("../internal_workings.zig");
+pub const encoding        = @import("string_encoding.zig");
+const CharacterWidth      = encoding.CharacterWidth;
+const BufferSlice         = encoding.CharacterWidth.BufferSlice;
+const BufferSliceSentinel = encoding.CharacterWidth.BufferSliceSentinel;
+const Padding             = iw.Padding;
+const assertTagSize       = iw.assertTagSize;
 
 //      |   TC7  |
 //           |TC3|
@@ -44,6 +45,43 @@ pub const Layout = extern struct {
 
     pub fn from(self: gzzg.String) *align(8) Layout {
         return @alignCast(@ptrCast(self.s));
+    }
+
+    // string tests required
+    // expect cons tag
+    // expect cons.0 to be a string tag
+    // expect cons.1 to be a cons tag
+    // expect cons.1.0 to be stringbuf tag
+    // expect const.1.0.1 to be a number,
+    // expect cons.1.0.2 to be the buffer
+    
+    pub fn is(s: iw.SCM) bool {
+        if (!(!iw.isImmediate(s) and iw.getTCFor(iw.TC3, s) == .cons))
+            return false;
+        
+        const c0 = iw.getSCMFrom(s[0]);
+        const c1 = iw.getSCMFrom(s[1]);
+        
+        if (!(iw.isImmediate(c0) and
+            iw.getTCFor(iw.TC3, c0) == .tc7 and
+            iw.getTCFor(iw.TC7, c0) == .string and
+            !iw.isImmediate(c1) and
+            iw.getTCFor(iw.TC3, c1) == .cons))
+            return false;
+
+        const v0 = iw.getSCMFrom(c1[0]);
+
+        return iw.isImmediate(v0) and
+            iw.getTCFor(iw.TC3, v0) == .tc7_2 and
+            iw.getTCFor(iw.TC7, v0) == .stringbuf;
+    }
+
+    pub fn getSlice(self: *align(8) @This()) BufferSlice {
+        //todo deal with shared
+        return switch (self.buffer.strbuf.getSlice()) {
+            .narrow => |ns| .{ .narrow = ns[self.start..][0..self.len]},
+            .wide => |ws| .{ .wide = ws[self.start..][0..self.len] },
+        };
     }
 
     const Tag = packed struct {
@@ -165,7 +203,7 @@ pub fn Buffer(options: BufferOptions) type {
             return @ptrCast(&self.buffer);
         }
 
-        pub fn getSlice(self: *align(8) Self) BufferSlice {
+        pub fn getSlice(self: *align(8) Self) BufferSliceSentinel {
             switch (options) {
                 .ambiguous => {
                     return switch (self.tag.width) {
@@ -244,6 +282,77 @@ pub inline fn runtimeBuffer(allocator: std.mem.Allocator, str_utf8:[]const u8, m
 
 fn expectSamePtr(expected: anytype, actual: anytype) !void {
     try std.testing.expectEqual(@intFromPtr(expected), @intFromPtr(actual));
+}
+
+
+test "guile static string .narrow" {
+    const expectEqual = std.testing.expectEqual;
+    gzzg.initThreadForGuile();
+
+    const str = "Smoke me a kipper, I'll be back for breakfast";
+    const strbuf align(8) = staticBuffer(str);
+    var layout align(8) = Layout.init(strbuf.ambiguation(), .just_readable);
+
+    const gstr = layout.ref();
+
+    try expectEqual(str.len, gstr.lenZ());
+
+    var itr = gstr.iterator();
+    var idx: usize = 0;
+    while (itr.next()) |c| : (idx += 1) {
+        try expectEqual(str[idx], (try c.toZ()).getOne());
+    }
+}
+
+test "guile static string .wide" {
+    const expectEqual        = std.testing.expectEqual;
+    const expectEqualStrings = std.testing.expectEqualStrings;
+    const Char               = gzzg.Character;
+    gzzg.initThreadForGuile();
+
+    const u = std.unicode;
+
+    // Qrrc Oyhr–Xnfcnebi, 1996, eq 1
+    // ♔♕♖♗♘♙
+    // ♚♛♜♝♞♟
+    const str =
+        \\    abcdefgh
+        \\   ╔════════╗
+        \\ 8 ║        ║
+        \\ 7 ║       ♜║
+        \\ 6 ║     ♕ ♔║
+        \\ 5 ║   ♛  ♞ ║
+        \\ 4 ║   ♙    ║
+        \\ 3 ║♟♟   ♙♟♟║
+        \\ 2 ║     ♘ ♚║
+        \\ 1 ║    ♖   ║
+        \\   ╚════════╝ 
+    ;
+    const strbuf align(8) = staticBuffer(str);
+    var layout align(8) = Layout.init(strbuf.ambiguation(), .just_readable);
+
+    const gstr = layout.ref();
+
+    try expectEqual(try u.utf8CountCodepoints(str), gstr.lenZ());
+
+    var view = try u.Utf8View.init(str);
+    var itr = view.iterator();
+    var gitr = gstr.iterator();
+
+    var gchar:?Char = gitr.next();
+    var char:?[] const u8 = itr.nextCodepointSlice();
+    while (true) : ({
+        gchar = gitr.next();
+        char  = itr.nextCodepointSlice();
+    }) {
+        if (gchar == null and char == null)
+            break;
+        
+        if (gchar == null or char == null) 
+            return error.DoNotMatch;
+
+        try expectEqualStrings(char.?, (try gchar.?.toZ()).getConst());   
+    }
 }
 
 // todo: consider test naming

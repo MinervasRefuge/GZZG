@@ -4,13 +4,11 @@
 const std   = @import("std");
 const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
-const iw_string = gzzg.internal_workings.string;
 
 const gexpect            = @import("tests.zig").gexpect;
 const expect             = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 const expectEqual        = std.testing.expectEqual;
-const print              = std.debug.print;
 
 const Char   = gzzg.Character;
 const Number = gzzg.Number;
@@ -98,8 +96,7 @@ test "guile string from/to wide" {
         cjk ++
         currency_symbols;
 
-    const gstr = String.fromUTF8(str);
-    try expect(gstr.getInternalStringSize() == .wide);
+    const gstr = String.fromUTF8(str); // This will create a wide string
 
     const out = try gstr.toUTF8(fba.allocator());
     try expectEqualStrings(str, out);
@@ -150,71 +147,3 @@ test "guile string iter" {
         try expect((try c.toZ()).getOne() == str[idx]);
     }
 }
-
-
-test "guile static string .narrow" {
-    gzzg.initThreadForGuile();
-
-    const str = "Smoke me a kipper, I'll be back for breakfast";
-    const strbuf align(8) = iw_string.staticBuffer(str);
-    const layout align(8) = iw_string.Layout.init(strbuf.ambiguation(), .just_readable);
-
-    const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
-
-    try expectEqual(str.len, gstr.lenZ());
-
-    var itr = gstr.iterator();
-    var idx: usize = 0;
-    while (itr.next()) |c| : (idx += 1) {
-        try expectEqual(str[idx], (try c.toZ()).getOne());
-    }
-}
-
-test "guile static string .wide" {
-    gzzg.initThreadForGuile();
-
-    const u = std.unicode;
-
-    // Qrrc Oyhr–Xnfcnebi, 1996, eq 1
-    // ♔♕♖♗♘♙
-    // ♚♛♜♝♞♟
-    const str =
-        \\    abcdefgh
-        \\   ╔════════╗
-        \\ 8 ║        ║
-        \\ 7 ║       ♜║
-        \\ 6 ║     ♕ ♔║
-        \\ 5 ║   ♛  ♞ ║
-        \\ 4 ║   ♙    ║
-        \\ 3 ║♟♟   ♙♟♟║
-        \\ 2 ║     ♘ ♚║
-        \\ 1 ║    ♖   ║
-        \\   ╚════════╝ 
-    ;
-    const strbuf align(8) = iw_string.staticBuffer(str);
-    const layout align(8) = iw_string.Layout.init(strbuf.ambiguation(), .just_readable);
-
-    const gstr = String{ .s = @constCast(@ptrCast(&layout)) };
-
-    try expectEqual(try u.utf8CountCodepoints(str), gstr.lenZ());
-
-    var view = try u.Utf8View.init(str);
-    var itr = view.iterator();
-    var gitr = gstr.iterator();
-
-    var gchar:?Char = gitr.next();
-    var char:?[] const u8 = itr.nextCodepointSlice();
-    while (true) : ({
-        gchar = gitr.next();
-        char  = itr.nextCodepointSlice();
-    }) {
-        if (gchar == null and char == null)
-            break;
-        
-        if (gchar == null or char == null) 
-            return error.DoNotMatch;
-
-        try expectEqualStrings(char.?, (try gchar.?.toZ()).getConst());   
-    }
-}
-

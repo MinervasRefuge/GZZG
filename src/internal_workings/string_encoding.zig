@@ -98,9 +98,28 @@ pub const CharacterWidth = enum(u1) {
         };
     }
 
-    pub const BufferSlice = union(Self) {
+    pub const BufferSliceSentinel = union(Self) {
         narrow: [:0]Self.narrow.backingType(),
         wide: [:0]Self.wide.backingType(),
+    };
+    
+    pub const BufferSlice = union(Self) {
+        narrow: []Self.narrow.backingType(),
+        wide: []Self.wide.backingType(),
+        
+        pub fn toUTF8(a: @This(), allocator: std.mem.Allocator) ![:0]u8 {
+            return switch (a) {
+                .narrow => |n| Latin1.toUTF8(allocator, n),
+                .wide   => |w| UTF32 .toUTF8(allocator, w)
+            };
+        }
+        
+        pub fn formatBuffer(bs: BufferSlice, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+            return switch (bs) {
+                .narrow => |n| Latin1.writeToUTF8(n, writer),
+                .wide   => |w| UTF32 .writeToUTF8(w, writer)
+            };
+        }  
     };
 };
 
@@ -159,14 +178,14 @@ pub const Latin1 = struct {
 
     pub fn toUTF8(allocator: std.mem.Allocator, str_latin1: []const u8) @TypeOf(allocator).Error![:0] u8 {
         const len_utf8, const multibyte_utf8 = detailsOfUTF8(str_latin1);
-        const str_utf8 = try allocator.alloc(u8, len_utf8 + 1);
+        const str_utf8 = try allocator.allocSentinel(u8, len_utf8, 0);
 
         if (!multibyte_utf8) {
             @memcpy(str_utf8[0..len_utf8], str_latin1);
 
             str_utf8[len_utf8] = 0;
             
-            return @ptrCast(str_utf8[0..len_utf8]);
+            return str_utf8;
         }
 
         var pos_utf8: usize = 0;
@@ -179,7 +198,7 @@ pub const Latin1 = struct {
         
         str_utf8[len_utf8] = 0;
 
-        return @ptrCast(str_utf8[0..len_utf8]);
+        return str_utf8;
     }
     
     pub fn lenInLatin1(str_utf8: []const u8) (error{NotLatin1Compatible} || UTF8Errors)!usize {
@@ -272,7 +291,7 @@ pub const UTF32 = struct {
     
     pub fn toUTF8(allocator: std.mem.Allocator, str_utf32: []const u32)  ![:0] u8 {
         const len_utf8 = try lenInUTF8(str_utf32);
-        const str_utf8 = try allocator.alloc(u8, len_utf8 + 1);
+        const str_utf8 = try allocator.allocSentinel(u8, len_utf8, 0);
 
         var pos_utf8: usize = 0;
         for (str_utf32) |codepoint| {
@@ -283,7 +302,7 @@ pub const UTF32 = struct {
 
         std.debug.assert(pos_utf8 == len_utf8);
 
-        return @ptrCast(str_utf8[0..len_utf8]);
+        return str_utf8;
         
     }
 

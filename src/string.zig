@@ -5,7 +5,6 @@ const std   = @import("std");
 const bopts = @import("build_options");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
-const iw    = gzzg.internal_workings;
 
 const orUndefined = gzzg.orUndefined;
 
@@ -101,7 +100,6 @@ pub const Character = struct {
 //                                          String §6.6.5
 //                                          -------------
 
-//todo: check string encoding perticulars.
 pub const String = struct {
     s: guile.SCM,
 
@@ -110,114 +108,50 @@ pub const String = struct {
     pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
     pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
 
-    // Notes:
-    // There does exist `scm_c_string_utf8_length` for knowing the number of bytes needed,
-    // `scm_to_locale_stringbuf` is the only way to copy the string to your own managed mem copy.
-    //         ^^^^^^ also double copies the string.
-    // Only other way is via internal fns and/~ external char encoding libs.
-    // `scm_i_string_chars (SCM str)` is public but has been marked for changing to internal only.
-
-    // string tests required
-    // expect cons tag
-    // expect cons.0 to be a string tag
-    // expect cons.1 to be a cons tag
-    // expect cons.1.0 to be stringbuf tag
-    // expect const.1.0.1 to be a number,
-    // expect cons.1.0.2 to be the buffer
-
-    fn isDirect(s: iw.SCM) bool {
-        if (!(!iw.isImmediate(s) and iw.getTCFor(iw.TC3, s) == .cons))
-            return false;
-
-        const c0 = iw.getSCMFrom(s[0]);
-        const c1 = iw.getSCMFrom(s[1]);
-
-        if (!(iw.isImmediate(c0) and
-            iw.getTCFor(iw.TC3, c0) == .tc7 and
-            iw.getTCFor(iw.TC7, c0) == .string and
-            !iw.isImmediate(c1) and
-            iw.getTCFor(iw.TC3, c1) == .cons))
-            return false;
-
-        const v0 = iw.getSCMFrom(c1[0]);
-
-        return iw.isImmediate(v0) and
-            iw.getTCFor(iw.TC3, v0) == .tc7_2 and
-            iw.getTCFor(iw.TC7, v0) == .stringbuf;
-    }
-
-    fn getInternalBuffer(a: String) iw.string.encoding.CharacterWidth.BufferSlice {
-        const s: *align(8) iw.string.Layout = .from(a);
-
-        return s.buffer.strbuf.getSlice();
-    }
-
-    // todo: remove pub
-    // todo: remove completly
-    pub fn getInternalStringSize(a: String) iw.string.encoding.CharacterWidth {
-        const s: *align(8) iw.string.Layout = .from(a);
-
-        // Todo: consider shared strings
-        return s.buffer.strbuf.tag.width;
-    }
-
     pub fn toUTF8(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        return if (bopts.enable_direct_string_access)
-            toUTF8Direct(a, allocator)
-        else
-            toUTF8Copy(a, allocator);
+        if (bopts.enable_direct_string_access) {
+            // direct mem access
+            const iw = gzzg.internal_workings;
+            
+            if (!iw.string.Layout.is(iw.gSCMtoIWSCM(a.s)))
+                return error.scmNotAString;
+
+            const s: *align(8) iw.string.Layout = .from(a);
+            
+            return s.getSlice().toUTF8(allocator);
+        } else {
+            // recopy the c allocated one to zig mem
+            const cstr = std.mem.span(guile.scm_to_utf8_string(a.s));
+            defer std.heap.raw_c_allocator.free(cstr);
+            
+            const out = try allocator.allocSentinel(u8, cstr.len, 0);
+            
+            @memcpy(out, cstr);
+            
+            return out;
+        }
     }
 
-    // recopy the c allocated one to zig mem
-    fn toUTF8Copy(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        const cstr = std.mem.span(guile.scm_to_utf8_string(a.s));
-        defer std.heap.raw_c_allocator.free(cstr);
-
-        const out = try allocator.allocSentinel(u8, cstr.len, 0);
-
-        @memcpy(out, cstr);
-
-        return out;
-    }
-
-    // direct mem access
-    fn toUTF8Direct(a: String, allocator: std.mem.Allocator) ![:0]u8 {
-        if (!isDirect(iw.gSCMtoIWSCM(a.s))) return error.scmNotAString;
-
-        const s: *align(8) iw.string.Layout = .from(a);
-        
-        return switch (a.getInternalBuffer()) {
-            .narrow => |n| iw.string.encoding.Latin1.toUTF8(allocator, n[s.start..][0..s.len]),
-            .wide   => |w| iw.string.encoding.UTF32 .toUTF8(allocator, w[s.start..][0..s.len])
-        };
-    }
-
-    // todo: add direct verions
     // todo: consider if the format fn should: exist, display or write
-    // todo: format options
     pub fn format(value: String, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         if (bopts.enable_direct_string_access) {
-            try formatFast(value, fmt, options, writer);
-        } else {
-            try formatSlow(value, fmt, options, writer);
-        }
-    }
-
-    fn formatSlow(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        var iter = value.iterator();
-
-        while (iter.next()) |chr| {
-            try std.fmt.format(writer, "{}", .{chr});            
-        }
-    }
-    
-    fn formatFast(value: String, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        const s: *align(8) iw.string.Layout = .from(value);
+            // direct mem access
+            const iw = gzzg.internal_workings;
+            
+            if (!iw.string.Layout.is(iw.gSCMtoIWSCM(value.s))) return;
+            // return error.scmNotAString;
+            // todo: is there a way to return this error as it currently errors (explicit return type?)
+            
+            const s: *align(8) iw.string.Layout = .from(value);
         
-        return switch (value.getInternalBuffer()) {
-            .narrow => |n| iw.string.encoding.Latin1.writeToUTF8(n[s.start..][0..s.len], writer),
-            .wide   => |w| iw.string.encoding.UTF32 .writeToUTF8(w[s.start..][0..s.len], writer)
-        };
+            try s.getSlice().formatBuffer(fmt, options, writer);
+        } else {
+            var iter = value.iterator();
+            
+            while (iter.next()) |chr| {
+                try std.fmt.format(writer, "{}", .{chr});            
+            }
+        }
     }
 
     pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }
