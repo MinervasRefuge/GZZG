@@ -22,6 +22,11 @@ fn gzzgType(comptime GT: type, comptime note: []const u8) void {
                 if (s.fields[s_idx].type != SCM)
                     @compileError(note ++ "Expected `s` field to be a `guile.SCM`. Found: " ++
                                       @typeName(s.fields[s_idx].type));
+
+                if (@hasDecl(GT, "Child") and @TypeOf(GT.Child) != type)
+                    @compileError(note ++ "Expected `Child` to be a type on " ++ tname ++ ". Found: "
+                                      ++ @typeName(@TypeOf(GT.Child)));
+
             } else {
                 @compileError(note ++ "Missing `s: guile.SCM` field in: " ++ tname);
             }

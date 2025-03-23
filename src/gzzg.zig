@@ -20,7 +20,8 @@ pub const String     = @import("string.zig").String;
 pub const Symbol     = @import("string.zig").Symbol;
 pub const Keyword    = @import("string.zig").Keyword;
 pub const Pair       = @import("list.zig").Pair;
-pub const List       = @import("list.zig").List;
+pub const ListOf     = @import("list.zig").ListOf;
+pub const List       = ListOf(Any);
 pub const Vector     = @import("vector.zig").Vector;
 // Bit Vectors
 pub const ByteVector = @import("byte_vector.zig").ByteVector;

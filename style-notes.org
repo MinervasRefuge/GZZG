@@ -1,19 +1,21 @@
 #+OPTIONS: toc:nil
 #+OPTIONS: ^:nil
 * Style Notes[fn:1]
-** Type Constraints
+- All containers must have a field ~s~ of type ~guile.SCM~.
+- If it's a composed type, it must have a declaration of ~const Child = T;~.
 
+** Type Constraints
 - ~lowerZ~ to widen the type to ~Any~
-- ~raiseZ~ to narrow a type (only on ~Any~)
+- ~raiseZ~ to narrow a type (only on ~Any~).
 
 For composite types, ~drop~ and ~lift~ might be used to change Zig data to Guile data.
 With the Number Tower, Smob types, External Types (vtables). Anything with an intermediate type (before ~Any~) does the above rules work? should there be ~sublower~ or passing the lowering type (comptime) in?
    
 ** Function Declaration Order
  - Use ~from*~ as a direct constructor for the Guile type.
- - append ~Z~ if function returns Zig values, with no similar function. (companion function).
- - append ~X~ for mutation functions (more-so based on scm function naming)
- - append ~E~ if a known exception can be raised but isn't capture by the function. (which is many of the functions, so it may be easy to miss/not write).
+ - Append ~Z~ if function returns Zig values, with no similar function. (companion function).
+ - Append ~X~ for mutation functions (more-so based on scm function naming).
+ - Append ~E~ if a known exception can be raised but isn't capture by the function. (which is many of the functions, so it may be easy to miss/not write).
 
 Order the letters alphabetically.
 
@@ -31,12 +33,14 @@ If a companion ~.C~ method exists should it always be added? Should there always
 4. ~is~, ~isZ~
 5. ~lowerZ~
 6. ~is*~
-7. Other/Rest
+7. Other/Rest.
 
 #+NAME: Example Layout
 #+BEGIN_SRC zig
   struct {
       const DATA = @This(){ .s = guile.DATA };
+
+      const Child = T; // if generated
 
       s: guile.SCM,
 

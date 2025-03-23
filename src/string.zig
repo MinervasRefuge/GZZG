@@ -6,11 +6,13 @@ const bopts = @import("build_options");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const GZZGType = gzzg.contracts.GZZGType;
 const orUndefined = gzzg.orUndefined;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Number  = gzzg.Number;
+const ListOf  = gzzg.ListOf;
 
 //                                        ----------------
 //                                        Character §6.6.3
@@ -162,6 +164,10 @@ pub const String = struct {
         return if (Boolean.isZ(out)) null else .{ .s = out };
     }
 
+    pub fn toCharacters(a: String) ListOf(Character) { return .{ .s = guile.scm_string_to_list(a.s) }; }
+    pub fn toCharactersSubString (a: String, start: Number, end: ?Number) ListOf(Character)
+        { return .{ .s = guile.scm_substring_to_list(a.s, start.s, orUndefined(end)) }; }
+
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_string_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_string(a) != 0; }
 
@@ -200,6 +206,11 @@ pub const String = struct {
 
     // string-any
     // string-ever
+
+    /// char_predicate can be a Character, Predicate, char set
+    pub fn splitE(a: String, char_predicate: Any) GZZGType(@TypeOf(char_predicate), ListOf(String)) {
+        return .{ .s = guile.scm_string_split(a.s, char_predicate.s) };
+    }
 
     pub fn iterator(a: String) ConstStringIterator {
         return .{
