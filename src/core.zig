@@ -164,33 +164,73 @@ pub fn StaticCache(GType: type, strs: []const []const u8) type {
     };
 }
 
-pub fn UnionSCM(scmTypes: anytype) GZZGTypes(scmTypes, type) {
-    comptime var uf: [scmTypes.len]std.builtin.Type.UnionField = undefined;
-    comptime var ef: [scmTypes.len]std.builtin.Type.EnumField = undefined;
+fn guileToZigName(comptime name: [:0]const u8) [name.len:0]u8 {
+    var out: [name.len:0]u8 = undefined;
 
-    // check if greater then lower case alphabet
-    inline for (scmTypes, 0..) |t, i| {
-        //todo: check the types
-
-        uf[i] = std.builtin.Type.UnionField{ .alignment = 0, .name = &[_:0]u8{0x61 + i}, .type = t };
-        ef[i] = std.builtin.Type.EnumField{ .name = &[_:0]u8{0x61 + i}, .value = i };
-
-        //todo the type names will be wrong.
+    //todo: consider capitals
+    for (name, 0..) |c, i| {
+        switch (c) {
+            '-' => out[i] = '_',
+            else => out[i] = c,
+        }
     }
 
-    const ET = @Type(.{
+    return out;
+}
+
+/// Takes in a tuple of scm container types
+pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
+    const Type = std.builtin.Type;
+    const len = scmTypes.len + 1;
+
+    var enum_fields: [len]Type.EnumField = undefined;
+    var union_fields: [len]Type.UnionField = undefined;
+
+    inline for (scmTypes, 0..) |St, i| {
+        const name:[:0]const u8 = &guileToZigName(St.guile_name); // is this safe?
+        
+        enum_fields [i] = .{ .name = name, .value = i };
+        union_fields[i] = .{ .name = name, .type = St, .alignment = @alignOf(guile.SCM) };
+    }
+
+    enum_fields [len-1] = .{ .name = Any.guile_name, .value = len-1 };
+    union_fields[len-1] = .{ .name = Any.guile_name, .type = Any, .alignment = @alignOf(guile.SCM) };
+
+    const SCMEnum = @Type(.{
         .Enum = .{
-            .tag_type = u8,
-            .fields = &ef,
-            .decls = &[_]std.builtin.Type.Declaration{},
+            .tag_type = std.math.IntFittingRange(0, len),
+            .fields = &enum_fields,
+            .decls = &[_]Type.Declaration{},
             .is_exhaustive = true
     }});
 
-    return @Type(.{
+    const SCMUnion = @Type(.{
         .Union = .{
             .layout = .auto,
-            .tag_type = ET,
-            .fields = &uf,
-            .decls = &[_]std.builtin.Type.Declaration{}
+            .tag_type = SCMEnum,
+            .fields = &union_fields,
+            .decls = &[_]Type.Declaration{}
     }});
+ 
+    return struct {
+        s: guile.SCM,
+
+        pub fn get(a: @This(), comptime SCMType: type) ?SCMType {
+            if (comptime std.mem.indexOfScalar(type, scmTypes, SCMType) == null)
+                @compileError(@typeName(SCMType) ++ " not a member of this scm union");
+
+            return if (SCMType.isZ(a.s)) .{ .s = a.s } else null;
+        }
+
+        pub fn decide(a: @This()) SCMUnion {
+            inline for(std.meta.fields(SCMUnion)) |field| {
+                if (comptime !std.mem.eql(u8, field.name, Any.guile_name))
+                    if (field.type.isZ(a.s)) @unionInit(SCMUnion, field.name, .{ .s = a.s });
+            }
+
+            return @unionInit(SCMUnion, Any.guile_name, .{ .s = a.s });
+        }
+
+        pub fn lowerZ(a: @This()) Any { return .{ .s = a.s }; }
+    };
 }

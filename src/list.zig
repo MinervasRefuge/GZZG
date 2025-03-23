@@ -70,7 +70,6 @@ pub fn ListOf(comptime T: type) type {
         pub fn append (a: Self, b: Self) Self  { return .{ .s = guile.scm_append(ListOf(Self).init(.{ a, b }).s) }; }
         //todo: check is this working?
         pub fn appendX(a: Self, b: Self) void  { _ = guile.scm_append_x(ListOf(Self).init(.{ a, b }).s); }
-        //todo: type check
         pub fn cons   (a: Self, b: T)    Self  { return .{ .s = guile.scm_cons(b.s, a.s) }; }
         pub fn reverse(a: Self)          Self  { return .{ .s = guile.scm_reverse(a.s) }; }
         // pub fn reverseX(a: *List, newtail: Any) void { 
@@ -97,9 +96,23 @@ pub fn ListOf(comptime T: type) type {
         //filter
 
         // §6.6.9.7 List Searching
-        pub fn memq  (_: Self, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
-        pub fn memv  (_: Self, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
-        pub fn member(_: Self, _: anytype) gzzg.UnionSCM(.{Boolean, Any}) {@panic("Unimplemented");}
+        pub fn memq(a: Self, item: T) ?Self {
+            const found = guile.scm_memq(item.s, a.s);
+            
+            return if (Boolean.isZ(found)) null else .{ .s = found };
+        }
+        
+        pub fn memv(a: Self, item: T) ?Self {
+            const found = guile.scm_memv(item.s, a.s);
+
+            return if (Boolean.isZ(found)) null else .{ .s = found };
+        }
+        
+        pub fn member(a: Self, item: T) ?Self {
+            const found = guile.scm_member(item.s, a.s);
+
+            return if (Boolean.isZ(found)) null else .{ .s = found };
+        }
         
         //pub fn map(proc: Any, lists
         
