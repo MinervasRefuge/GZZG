@@ -83,7 +83,7 @@ pub fn gzzgNaiveSieve(limit: gzzg.Number) !gzzg.List {
 
     for (2..zlimit) |i| {
         if (!table[i - 2]) {
-            out = out.cons(gzzg.Number.from(i));
+            out = out.cons(gzzg.Number.from(i).lowerZ());
 
             var mark_pos: usize = i;
             while (mark_pos < zlimit) : (mark_pos += i) {

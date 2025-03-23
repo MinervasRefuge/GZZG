@@ -44,10 +44,10 @@ pub const Character = struct {
         
     pub fn lowerZ(a: Character) Any { return .{ .s = a.s }; }
 
-    pub fn generalCategory(a: Character) gzzg.UnionSCM(.{Symbol, Boolean}) {
+    pub fn generalCategory(a: Character) ?Symbol {
         const gcat = guile.scm_char_general_category(a.s);
         
-        return if (Boolean.isZ(gcat)) .{ .b = Boolean.FALSE } else .{ .a = .{ .s = gcat } };
+        return if (Boolean.isZ(gcat)) null else .{ .s = gcat };
     }
 
     pub fn equal           (x: Character, y: Character) Boolean { return .{ .s = guile.scm_char_eq_p(x.s, y.s) }; }
@@ -67,6 +67,8 @@ pub const Character = struct {
     pub fn format(value: Character, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
+        const iw = gzzg.internal_workings;
+        
         try writer.writeAll(if (value.toZ())
                                 |slice| slice.getConst()
                             else
@@ -89,7 +91,7 @@ pub const Character = struct {
         }
 
         pub fn toUTF8(char: u21) !U8CharSlice {
-            var slice: U8CharSlice = .{.buffer = undefined, .count = 0};
+            var slice: U8CharSlice = .{ .buffer = undefined, .count = 0 };
             slice.count = try std.unicode.utf8Encode(char, slice.buffer[0..]);
             return slice;
         }
@@ -140,6 +142,10 @@ pub const String = struct {
             
             return out;
         }
+    }
+
+    pub fn toUTF8UsingCAllocator(a: String) ![:0]u8 {
+        return std.mem.span(guile.scm_to_utf8_string(a.s));
     }
 
     // todo: consider if the format fn should: exist, display or write

@@ -233,7 +233,7 @@ pub fn Buffer(options: BufferOptions) type {
                 *align(info.alignment) child;
         }
 
-        pub fn ambiguation(self: anytype) OfMatchingPointer(@TypeOf(self), Buffer(.ambiguous)) {
+        pub inline fn ambiguation(self: anytype) OfMatchingPointer(@TypeOf(self), Buffer(.ambiguous)) {
             return @ptrCast(self);
         }
 
