@@ -10,6 +10,9 @@ Requires ~libguile-3.0~. Currently targeting ~zig@0.14~
 
 Note that this is very much 🚧 /work in progress/ 🚧.
 
+** Note regarding ~setjmp~ / ~longjmp~
+Zig considers unsound and can't be used. [[https://github.com/ziglang/zig/issues/1656][Issue 1656]]. So those corners /currently/ are a little rough.
+
 #+begin_quote
 I'm not a fruitcake. Am I lad? -- Wallace
 #+end_quote
