@@ -3,22 +3,25 @@
 
 const std  = @import("std");
 const gzzg = @import("gzzg.zig");
+
 const SCM  = gzzg.guile.SCM;
 const print = std.fmt.comptimePrint;
 
 //
-// Imports should be limited to only GZZG `type` checking code (with the exception of Guile `SCM` type above)
+// Imports should be limited to only GZZG `type` checking code (with the exception of Guile `SCM`
+// type above)
 //
 
-fn gzzgType(gt: type, comptime note: []const u8) void {
-    const tname = @typeName(gt);
-    switch (@typeInfo(gt)) {
+fn gzzgType(comptime GT: type, comptime note: []const u8) void {
+    const tname = @typeName(GT);
+    switch (@typeInfo(GT)) {
         .@"struct" => |s| {
             if (s.is_tuple) @compileError(note ++ "SCMType " ++ tname ++ " can't be a tuple");
 
-            if (std.meta.fieldIndex(gt, "s")) |s_idx| {
+            if (std.meta.fieldIndex(GT, "s")) |s_idx| {
                 if (s.fields[s_idx].type != SCM)
-                    @compileError(note ++ "Expected `s` field to be a `guile.SCM`. Found: " ++ @typeName(s.fields[s_idx].type));
+                    @compileError(note ++ "Expected `s` field to be a `guile.SCM`. Found: " ++
+                                      @typeName(s.fields[s_idx].type));
             } else {
                 @compileError(note ++ "Missing `s: guile.SCM` field in: " ++ tname);
             }
@@ -27,38 +30,39 @@ fn gzzgType(gt: type, comptime note: []const u8) void {
     }
 }
 
-pub fn GZZGType(ts: type, output: type) type {
-    gzzgType(ts, "");
+pub fn GZZGType(comptime GT: type, comptime Output: type) type {
+    gzzgType(GT, "");
 
-    return output;
+    return Output;
 }
 
-pub fn GZZGTypes(ts: type, output: type) type {
-    switch (@typeInfo(ts)) {
+pub fn GZZGTypes(comptime GTs: type, comptime Output: type) type {
+    switch (@typeInfo(GTs)) {
         .@"struct" => |st| {
+            if (!st.is_tuple) @compileError("Expect tuple");
             inline for (st.fields, 0..) |f, i| {
                 gzzgType(f.type, print("types@{d}: ", .{i}));
             }
         },
-        else => @compileError("Not a struct/tuple"),
+        else => @compileError("Not a tuple"),
     }
 
-    return output;
+    return Output;
 }
 
-pub fn GZZGOptionalType(ot: type, output: type) type {
-    switch (@typeInfo(ot)) {
+pub fn GZZGOptionalType(comptime OGT: type, comptime Output: type) type {
+    switch (@typeInfo(OGT)) {
         .optional => |opt| {
             gzzgType(opt.child, "");
         },
         else => @compileError("Expected Optional Type"),
     }
 
-    return output;
+    return Output;
 }
 
-pub fn GZZGFn(fn_type: type, output: type) type {
-    const ft = switch (@typeInfo(fn_type)) {
+pub fn GZZGFn(comptime FnGT: type, comptime Output: type) type {
+    const ft = switch (@typeInfo(FnGT)) {
         .@"fn" => |st| st,
         else => @compileError("Not a Function"),
     };
@@ -67,11 +71,11 @@ pub fn GZZGFn(fn_type: type, output: type) type {
         gzzgType(stp.type.?, print("fn parms@{d}: ", .{i}));
     }
 
-    return output;
+    return Output;
 }
 
-pub fn GZZGFns(fn_types: type, output: type) type {
-    switch (@typeInfo(fn_types)) {
+pub fn GZZGFns(comptime FnGTs: type, comptime Output: type) type {
+    switch (@typeInfo(FnGTs)) {
         .@"struct" => |st| {
             inline for (st.fields, 0..) |fn_type, i| {
                 if (std.meta.fieldIndex(fn_type, "func") == null)
@@ -90,11 +94,11 @@ pub fn GZZGFns(fn_types: type, output: type) type {
         else => @compileError("Not a struct/tuple"),
     }
 
-    return output;
+    return Output;
 }
 
-pub fn GZZGFnC(fn_type: type, output: type) type {
-    const ft = switch (@typeInfo(fn_type)) {
+pub fn GZZGFnC(comptime FnCT: type, comptime Output: type) type {
+    const ft = switch (@typeInfo(FnCT)) {
         .@"fn" => |st| st,
         else => @compileError("Not a Function"),
     };
@@ -116,5 +120,5 @@ pub fn GZZGFnC(fn_type: type, output: type) type {
         @compileError("fn must have an `Any` return type");
     }
 
-    return output;
+    return Output;
 }
