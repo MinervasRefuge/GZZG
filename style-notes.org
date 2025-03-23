@@ -2,6 +2,7 @@
 #+OPTIONS: ^:nil
 * Style Notes[fn:1]
 - All containers must have a field ~s~ of type ~guile.SCM~.
+- All containers must have a human readable name declaration `guile_name` of the top level type eg. "list", "string" etc.
 - If it's a composed type, it must have a declaration of ~const Child = T;~.
 
 ** Type Constraints
@@ -40,6 +41,7 @@ If a companion ~.C~ method exists should it always be added? Should there always
   struct {
       const DATA = @This(){ .s = guile.DATA };
 
+      const guile_name = "human-name";
       const Child = T; // if generated
 
       s: guile.SCM,
@@ -62,6 +64,10 @@ If a companion ~.C~ method exists should it always be added? Should there always
 
       pub fn len (a: @This()) Number {}
       pub fn lenZ(a: @This()) usize  {}
+
+      comptime {
+          _ = gzzg.contracts.GZZGType(@This(), void);
+      }
   }
 #+END_SRC
 

@@ -11,7 +11,15 @@ const Symbol = gzzg.Symbol;
 //                                      Foreign Objects §6.20
 //                                      ---------------------
 
-pub const ForeignType = struct { s: guile.SCM };
+pub const ForeignType = struct {
+    s: guile.SCM,
+
+    pub const guile_name = "foreign-type";
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
+};
 
 pub fn makeForeignObjectType1(name: Symbol, slot: Symbol) ForeignType {
     return .{ .s = guile.scm_make_foreign_object_type(name.s, guile.scm_list_1(slot.s), null) };

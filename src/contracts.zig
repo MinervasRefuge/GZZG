@@ -12,6 +12,29 @@ const print = std.fmt.comptimePrint;
 // type above)
 //
 
+/// types that should be coercible into a []const u8
+inline fn isStringType(comptime T: type) bool {
+    switch (@typeInfo(T)) {
+        .pointer => |p| return switch (p.size) {
+            .one => switch (@typeInfo(p.child)) {
+                .array => |a| a.child == u8,
+                else => false,
+            },
+            .slice => return p.child == u8,
+            else => false,
+        },
+        .array => |a| return a.child == u8,
+        else => return false,
+    }
+}
+
+/// comptime values that can be coerced into a []const u8
+/// taken from: https://ziggit.dev/t/how-to-check-if-something-is-a-string/5857/4
+fn isString(comptime v: anytype) bool {
+    const str: []const u8 = "";
+    return @TypeOf(str, v) == []const u8;
+}
+
 fn gzzgType(comptime GT: type, comptime note: []const u8) void {
     const tname = @typeName(GT);
     switch (@typeInfo(GT)) {
@@ -27,6 +50,12 @@ fn gzzgType(comptime GT: type, comptime note: []const u8) void {
                     @compileError(note ++ "Expected `Child` to be a type on " ++ tname ++ ". Found: "
                                       ++ @typeName(@TypeOf(GT.Child)));
 
+                if (!@hasDecl(GT, "guile_name"))
+                    @compileError(note ++ "Missing human name `guile_name` on type: " ++ tname);
+
+                if (!isStringType(@TypeOf(GT.guile_name)))
+                    @compileError(note ++ "`guile_name` must be of a String: " ++ tname);
+                                    
             } else {
                 @compileError(note ++ "Missing `s: guile.SCM` field in: " ++ tname);
             }

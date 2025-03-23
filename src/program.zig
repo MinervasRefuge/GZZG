@@ -21,6 +21,8 @@ const Symbol  = gzzg.Symbol;
 pub const Module = struct {
     s: guile.SCM,
 
+    pub const guile_name = "module";
+    
     //todo type check
     pub fn define(name: [:0]const u8, define_fn: anytype) Module {
         const f = struct {
@@ -31,15 +33,20 @@ pub const Module = struct {
         
         return .{ .s = guile.scm_c_define_module(name, f.cModuleDefine, null) };
     }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 
 // todo: cover 6.18.10 Accessing Modules from C
-pub const Procedure = struct {
-    const Symbols = gzzg.StaticCache(Symbol, &.{"documentation", "type-parameter"});
-    
+pub const Procedure = struct {    
     s: guile.SCM,
 
+    pub const guile_name = "procedure";
+    const Symbols = gzzg.StaticCache(Symbol, &.{"documentation", "type-parameter"});
+    
     //                               ---------------------------
     //                               Primitive Procedures §6.7.2
     //                               ---------------------------
@@ -134,6 +141,10 @@ pub const Procedure = struct {
         }
         
         return .{ .s = guile.scm_call_n(proc.s, &scmArgs, scmArgs.len) };
+    }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };
 

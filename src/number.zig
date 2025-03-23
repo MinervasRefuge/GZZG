@@ -173,6 +173,8 @@ const Vector    = gzzg.Vector;
 pub const Number = struct {
     s: guile.SCM,
 
+    pub const guile_name = "number";
+
     pub fn fromZ(comptime n: anytype) Number {
         if (!@import("build_options").enable_comptime_number_creation)
             @compileError("\"enable_comptime_number_creation\" not enabled. Use `from`");
@@ -528,4 +530,8 @@ pub const Number = struct {
     // seed->random-state seed
     // datum->random-state datum
     // random-state->datum state
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };

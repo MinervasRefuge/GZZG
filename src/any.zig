@@ -12,6 +12,8 @@ pub const Any = extern struct {
     pub const UNSPECIFIED = Any{ .s = guile.SCM_UNSPECIFIED };
     // todo: consider EOF, EOL,ELISP_NILL?
 
+    pub const guile_name = "any";
+
     s: guile.SCM,
 
     pub fn is (_: guile.SCM) Boolean { return Boolean.TRUE; } // what about `guile.SCM_UNDEFINED`?
@@ -31,5 +33,6 @@ pub const Any = extern struct {
 
     comptime {
         std.debug.assert(@sizeOf(@This()) == @sizeOf(guile.SCM));
+        _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };

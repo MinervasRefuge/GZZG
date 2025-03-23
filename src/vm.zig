@@ -18,6 +18,8 @@ const Symbol  = gzzg.Symbol;
 pub const Stack = struct {
     s: guile.SCM,
 
+    pub const guile_name = "stack";
+    
     // todo: check args required for make-stack
     pub fn make() Stack { return .{ .s = guile.scm_make_stack(Boolean.TRUE.s, guile.SCM_EOL) }; }
 
@@ -38,6 +40,10 @@ pub const Stack = struct {
         };
     }
     // display-backtrace
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 const ConstStackIterator = struct {
@@ -75,6 +81,8 @@ const ConstStackIterator = struct {
 
 pub const Frame = struct {
     s: guile.SCM,
+
+    pub const guile_name = "frame";
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_frame_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }
@@ -119,7 +127,11 @@ pub const Frame = struct {
     pub fn dynamicLink(a: Frame)   Any { return .{ .s = guile.scm_frame_dynamic_link(a.s) }; }
     pub fn callRepresentation(a: Frame) Any { return .{ .s = guile.scm_frame_call_representation(a.s) }; }
     pub fn arguments(a: Frame)     Any { return .{ .s = guile.scm_frame_arguments(a.s) }; }
-    pub fn source(a: Frame)        Any { return .{ .s = guile.scm_frame_source(a.s) }; }    
+    pub fn source(a: Frame)        Any { return .{ .s = guile.scm_frame_source(a.s) }; }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 pub const VMFrame = struct {

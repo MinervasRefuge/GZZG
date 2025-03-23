@@ -16,6 +16,7 @@ const Symbol  = gzzg.Symbol;
 pub const ByteVector = struct {
     s: guile.SCM,
 
+    pub const guile_name = "byte-vector";
     const BIG: Symbol = .{ .s = guile.scm_endianness_big };
     const LITTLE: Symbol = .{ .s = guile.scm_endianness_little };
 
@@ -134,4 +135,8 @@ pub const ByteVector = struct {
         { _ = guile.scm_bytevector_ieee_double_set_x(a.s, index.s, value.s, endianness.s); }
 
     //todo: Native?
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };

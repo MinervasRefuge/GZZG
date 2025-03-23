@@ -17,6 +17,8 @@ const Boolean = gzzg.Boolean;
 pub const Smob = struct {
     s: guile.SCM,
 
+    pub const guile_name = "smob";
+    
     pub fn is (a: guile.SCM) Boolean { return Boolean.from(isZ(a)); }
     pub fn isZ(a: guile.SCM) bool    {
         comptime if (bopts.enable_iw_smob) {
@@ -46,4 +48,8 @@ pub const Smob = struct {
 
     //SCM_SMOBNUM(x)            (SCM_TC2SMOBNUM (SCM_CELL_TYPE (x)))
     //#define SCM_TC2SMOBNUM(x)        (0x0ff & ((x) >> 8))
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };

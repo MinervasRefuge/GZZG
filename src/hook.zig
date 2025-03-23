@@ -15,10 +15,16 @@ const Boolean = gzzg.Boolean;
 pub const Hook = struct {
     s: guile.SCM,
 
+    pub const guile_name = "hook";
+    
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_hook_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }
 
     pub fn lowerZ(a: Hook) Any { return .{ .s = a.s }; }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 //#define SCM_HOOKP(x)            SCM_SMOB_PREDICATE (scm_tc16_hook, x)

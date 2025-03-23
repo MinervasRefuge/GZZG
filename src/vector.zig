@@ -17,6 +17,8 @@ const Number  = gzzg.Number;
 pub const Vector = struct {
     s: guile.SCM,
 
+    pub const guile_name = "vector";
+
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_vector_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_vector(a) != 0; }
 
@@ -50,6 +52,10 @@ pub const Vector = struct {
         itr.idx = 0;
 
         return itr;
+    }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };
 

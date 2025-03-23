@@ -17,6 +17,8 @@ const Smob    = gzzg.Smob;
 pub const Thread = struct {
     s: guile.SCM,
 
+    pub const guile_name = "thread";
+    
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_thread_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }
 
@@ -28,5 +30,9 @@ pub const Thread = struct {
     // todo: have an I know what I'm doing mode?
     pub fn data(a: Thread) *guile.scm_thread {
         return @ptrCast(iw.getSCMCell(iw.gSCMtoIWSCM(a.s), 1));
+    }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };

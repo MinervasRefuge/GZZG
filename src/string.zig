@@ -21,6 +21,8 @@ const ListOf  = gzzg.ListOf;
 pub const Character = struct {
     s: guile.SCM,
 
+    pub const guile_name = "character";
+
     //todo: fix to be u21
     pub fn fromWideZ(a: i32) Character { return .{ .s = guile.SCM_MAKE_CHAR(a) }; }
     pub fn fromZ(a: u8) Character { return fromWideZ(@intCast(a)); }
@@ -92,6 +94,10 @@ pub const Character = struct {
             return slice;
         }
     };
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 //                                      --------------------
@@ -105,6 +111,8 @@ pub const Character = struct {
 pub const String = struct {
     s: guile.SCM,
 
+    pub const guile_name = "string";
+    
     pub fn fromUTF8    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
     pub fn fromUTF8CStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
     pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
@@ -219,6 +227,10 @@ pub const String = struct {
             .idx = 0
         };
     }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 const ConstStringIterator = struct {
@@ -257,6 +269,8 @@ const ConstStringIterator = struct {
 pub const Symbol = struct {
     s: guile.SCM,
 
+    pub const guile_name = "symbol";
+    
     pub fn from    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
     pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
@@ -291,6 +305,10 @@ pub const Symbol = struct {
             },
         }
     }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 //                                         --------------
@@ -300,10 +318,16 @@ pub const Symbol = struct {
 pub const Keyword = struct {
     s: guile.SCM,
 
+    pub const guile_name = "keyword";
+
     pub fn from(s: [:0]const u8) Keyword { return .{ .s = guile.scm_from_utf8_keyword(s) }; }
 
     pub fn toSymbol(a: Keyword) Symbol { return .{ .s = guile.scm_keyword_to_symbol(a.s) }; }
     
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_keyword_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_keyword(a) != 0; }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };

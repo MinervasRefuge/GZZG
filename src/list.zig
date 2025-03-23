@@ -18,6 +18,8 @@ const Number  = gzzg.Number;
 pub const Pair = struct {
     s: guile.SCM,
 
+    pub const guile_name = "pair";
+    
     // todo: typecheck
     pub fn from(x: anytype, y: anytype) Pair { return .{ .s = guile.scm_cons(x.s, y.s) }; }
 
@@ -25,6 +27,10 @@ pub const Pair = struct {
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
 
     pub fn lowerZ(a: Pair) Any { return .{ .s = a.s }; }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
 
 //                                           -----------
@@ -35,8 +41,9 @@ pub fn ListOf(comptime T: type) type {
     return struct {
         s: guile.SCM,
 
+        pub const guile_name = "list";
         const Self = @This();
-        const Child = T;
+        pub const Child = T;
         
         pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_list_p(a) }; }
         pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }  // where's the companion fn?
@@ -129,6 +136,10 @@ pub fn ListOf(comptime T: type) type {
                 self.l = self.head;
             }
         };
+
+        comptime {
+            _ = gzzg.contracts.GZZGType(@This(), void);
+        }
     };
 }
 

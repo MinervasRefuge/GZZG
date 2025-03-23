@@ -13,6 +13,8 @@ const Any = gzzg.Any;
 pub const Boolean = struct {
     s: guile.SCM,
 
+    pub const guile_name = "boolean";
+
     pub const TRUE : Boolean = .{ .s = guile.SCM_BOOL_T };
     pub const FALSE: Boolean = .{ .s = guile.SCM_BOOL_F };
 
@@ -26,4 +28,8 @@ pub const Boolean = struct {
     pub fn lowerZ(a: Boolean) Any { return .{ .s = a.s }; }
 
     pub fn not(a: Boolean) Boolean { return .{ .s = guile.scm_not(a.s) }; }
+
+    comptime {
+        _ = gzzg.contracts.GZZGType(@This(), void);
+    }
 };
