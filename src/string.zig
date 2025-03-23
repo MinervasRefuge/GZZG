@@ -117,6 +117,8 @@ pub const String = struct {
     
     pub fn fromUTF8    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
     pub fn fromUTF8CStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
+    pub fn fromListOfCharacters(a: ListOf(Character))        String { return .{ .s = guile.scm_string(a.s) }; }
+    pub fn fromReverseListOfCharacters(a: ListOf(Character)) String { return .{ .s = guile.scm_reverse_list_to_string(a.s) }; }
     pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
     pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
 
@@ -171,6 +173,7 @@ pub const String = struct {
     }
 
     pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }
+    pub fn toSymbolCI(a: String) Symbol { return .{ .s = guile.scm_string_ci_to_symbol(a.s) }; }
 
     pub fn toNumber(a: String, radix: ?Number) ?Number {
         const out = guile.scm_string_to_number(a.s, gzzg.orUndefined(radix));
@@ -201,17 +204,59 @@ pub const String = struct {
     pub fn substringE(a: String, start: Number, end:?Number) String {
         return .{ .s = guile.scm_substring(a.s, start.s, orUndefined(end)) };
     }
-    //substring
-    //substring/shared
-    //substring/copy
-    //substring/read-only
-    //z
-    //z
-    //z
-    //string-take
-    //string-drop
-    //string-take-right
-    //string-drop-right
+
+    pub fn substringSharedE(a: String, start: Number, end:?Number) String {
+        return .{ .s = guile.scm_substring_shared(a.s, start.s, orUndefined(end)) };
+    }
+
+    pub fn substringCopyE(a: String, start: Number, end:?Number) String {
+        return .{ .s = guile.scm_substring_copy(a.s, start.s, orUndefined(end)) };
+    }
+
+    pub fn substringReadOnlyE(a: String, start: Number, end:?Number) String {
+        return .{ .s = guile.scm_substring_read_only(a.s, start.s, orUndefined(end)) };
+    }
+
+    // scm_c_substring
+    // scm_c_substring_shared
+    // scm_c_substring_copy
+    // scm_c_substring_read_only
+
+    pub const JoinGrammar = enum {
+        const cache = gzzg.StaticCache(Symbol, &[_][]const u8{
+            "infix", "strict-infix", "suffix", "prefix"
+        });
+        
+        infix,
+        strict_infix,
+        suffix,
+        prefix,
+
+        pub fn get(a: @This()) Symbol {
+            return switch(a) {
+                .infix => cache.get("infix"),
+                .strict_infix => cache.get("string-infix"),
+                .suffix => cache.get("suffix"),
+                .prefix => cache.get("prefix"),
+            };
+        }
+        //todo: consider a Symbol -> JoinGrammar fn
+    };
+    
+    pub fn join(a: ListOf(String), delimiter: ?Character, grammar: ?JoinGrammar) String {
+        return .{ .s = guile.scm_string_join(
+            a.s,
+            orUndefined(delimiter),
+            if (grammar == null) Any.UNDEFINED.s else grammar.?.get()
+        )};
+    }
+    //string-tabulate
+
+    pub fn takeE(a: String, n: Number) String { return .{ .s = guile.scm_string_take(a.s, n.s) }; }
+    pub fn dropE(a: String, n: Number) String { return .{ .s = guile.scm_string_drop(a.s, n.s) }; }
+    pub fn takeRightE(a: String, n: Number) String { return .{ .s = guile.scm_string_take_right(a.s, n.s) }; }
+    pub fn dropRightE(a: String, n: Number) String { return .{ .s = guile.scm_string_drop_right(a.s, n.s) }; }
+
     //string-pad
     //stringpad-right
     //string-trim
@@ -272,6 +317,7 @@ const ConstStringIterator = struct {
 //                                          Symbol §6.6.6
 //                                          -------------
 
+// considered complete
 pub const Symbol = struct {
     s: guile.SCM,
 
@@ -280,14 +326,23 @@ pub const Symbol = struct {
     pub fn from    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
     pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
+    pub fn makeUninterned(a: String) Symbol { return .{ .s = guile.scm_make_symbol(a.s) }; }
+
     pub fn toKeyword(a: Symbol) Keyword { return .{ .s = guile.scm_symbol_to_keyword(a.s) }; }
     pub fn toString (a: Symbol) String  { return .{ .s = guile.scm_symbol_to_string(a.s) }; }
     
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_symbol_p(a) }; }
-    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; } 
-
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; }
     pub fn lowerZ(a: Symbol) Any { return .{ .s = a.s }; }
 
+    pub fn isInterned(a: Symbol) Boolean { return .{ .s = guile.scm_symbol_interned_p(a.s) }; }
+
+    pub fn hash(a: Symbol) Number { return .{ .s = guile.scm_symbol_hash(a.s) }; }
+    pub fn lenZ(a: Symbol) usize { return guile.scm_c_symbol_length(a.s); }
+
+    pub fn gensym(prefix: ?String) Symbol { return .{ .s = guile.scm_gensym(orUndefined(prefix)) }; }
+    
+    // todo: consider existance
     pub fn fromEnum(tag: anytype) Symbol {
         //todo: complete vs uncomplete enum?
         switch (@typeInfo(@TypeOf(tag))) {
@@ -321,6 +376,7 @@ pub const Symbol = struct {
 //                                         Keyword §6.6.7
 //                                         --------------
 
+// considered done (bar the commented function)
 pub const Keyword = struct {
     s: guile.SCM,
 
@@ -336,4 +392,6 @@ pub const Keyword = struct {
     comptime {
         _ = gzzg.contracts.GZZGType(@This(), void);
     }
+
+    //scm_c_bind_keyword_arguments
 };
