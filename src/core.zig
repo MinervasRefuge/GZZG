@@ -12,6 +12,7 @@ const GZZGOptionalType = gzzg.contracts.GZZGOptionalType;
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
 const Module  = gzzg.Module;
+const Port    = gzzg.Port;
 const String  = gzzg.String;
 const Symbol  = gzzg.Symbol;
 
@@ -112,19 +113,19 @@ pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
 }
 
 pub fn newline() void {
-    _ = guile.scm_newline(guile.scm_current_output_port());
+    _ = guile.scm_newline(Port.currentOutput().s);
 }
 
 pub fn display(a: anytype) GZZGType(@TypeOf(a), void) {
-    _ = guile.scm_display(a.s, guile.scm_current_output_port());
+    _ = guile.scm_display(a.s, Port.currentOutput().s);
 }
 
 pub fn newlineErr() void {
-    _ = guile.scm_newline(guile.scm_current_error_port());
+    _ = guile.scm_newline(Port.currentError().s);
 }
 
 pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
-    _ = guile.scm_display(a.s, guile.scm_current_error_port());
+    _ = guile.scm_display(a.s, Port.currentError().s);
 }
 
 //todo  ptr type checking

@@ -35,6 +35,10 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 
 //
 
+pub const Port = @import("port.zig").Port;
+
+//
+
 pub const Smob   = @import("smob.zig").Smob;
 pub const Thread = @import("thread.zig").Thread;
 pub const Hook   = @import("hook.zig").Hook;
