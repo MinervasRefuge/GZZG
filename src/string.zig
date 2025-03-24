@@ -201,19 +201,19 @@ pub const String = struct {
     pub fn refZ(a: String, k: usize)  Character { return  .{ .s = guile.scm_c_string_ref(a.s, k) }; }
     //string-refz
     //string-copy
-    pub fn substringE(a: String, start: Number, end:?Number) String {
+    pub fn substring(a: String, start: Number, end:?Number) String {
         return .{ .s = guile.scm_substring(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringSharedE(a: String, start: Number, end:?Number) String {
+    pub fn substringShared(a: String, start: Number, end:?Number) String {
         return .{ .s = guile.scm_substring_shared(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringCopyE(a: String, start: Number, end:?Number) String {
+    pub fn substringCopy(a: String, start: Number, end:?Number) String {
         return .{ .s = guile.scm_substring_copy(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringReadOnlyE(a: String, start: Number, end:?Number) String {
+    pub fn substringReadOnly(a: String, start: Number, end:?Number) String {
         return .{ .s = guile.scm_substring_read_only(a.s, start.s, orUndefined(end)) };
     }
 
@@ -252,10 +252,10 @@ pub const String = struct {
     }
     //string-tabulate
 
-    pub fn takeE(a: String, n: Number) String { return .{ .s = guile.scm_string_take(a.s, n.s) }; }
-    pub fn dropE(a: String, n: Number) String { return .{ .s = guile.scm_string_drop(a.s, n.s) }; }
-    pub fn takeRightE(a: String, n: Number) String { return .{ .s = guile.scm_string_take_right(a.s, n.s) }; }
-    pub fn dropRightE(a: String, n: Number) String { return .{ .s = guile.scm_string_drop_right(a.s, n.s) }; }
+    pub fn take(a: String, n: Number) String { return .{ .s = guile.scm_string_take(a.s, n.s) }; }
+    pub fn drop(a: String, n: Number) String { return .{ .s = guile.scm_string_drop(a.s, n.s) }; }
+    pub fn takeRight(a: String, n: Number) String { return .{ .s = guile.scm_string_take_right(a.s, n.s) }; }
+    pub fn dropRight(a: String, n: Number) String { return .{ .s = guile.scm_string_drop_right(a.s, n.s) }; }
 
     //string-pad
     //stringpad-right
@@ -267,7 +267,7 @@ pub const String = struct {
     // string-ever
 
     /// char_predicate can be a Character, Predicate, char set
-    pub fn splitE(a: String, char_predicate: Any) GZZGType(@TypeOf(char_predicate), ListOf(String)) {
+    pub fn split(a: String, char_predicate: Any) GZZGType(@TypeOf(char_predicate), ListOf(String)) {
         return .{ .s = guile.scm_string_split(a.s, char_predicate.s) };
     }
 

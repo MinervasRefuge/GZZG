@@ -133,7 +133,7 @@ pub const Procedure = struct {
     }
 
     // todo: allow return type check
-    pub fn callE(proc: Procedure, args: anytype) GZZGTypes(@TypeOf(args), Any) {
+    pub fn call(proc: Procedure, args: anytype) GZZGTypes(@TypeOf(args), Any) {
         var scmArgs: [args.len]guile.SCM = undefined;
         
         inline for (0..args.len) |i| {

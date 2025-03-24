@@ -33,11 +33,11 @@ pub const Vector = struct {
     pub fn len (a: Vector) Number { return .{ .s = guile.scm_vector_length(a.s) }; }
     pub fn lenZ(a: Vector) usize  { return guile.SCM_SIMPLE_VECTOR_LENGTH(a.s); }
 
-    pub fn refE(a: Vector, idx: Number) Any { return .{ .s = guile.scm_vector_ref(a.s, idx.s) }; }
+    pub fn ref(a: Vector, idx: Number) Any { return .{ .s = guile.scm_vector_ref(a.s, idx.s) }; }
     pub fn refZ(a: Vector, idx: usize)  Any { return .{ .s = guile.SCM_SIMPLE_VECTOR_REF(a.s, idx) }; }
 
-    pub fn setEX (a: Vector, idx: Number, obj: Any) void { _ = guile.scm_vector_set_x(a.s, idx.s, obj.s); }
-    pub fn setEXZ(a: Vector, idx: usize,  obj: Any) void { _ = guile.scm_c_vector_set_x(a.s, idx, obj.s); }
+    pub fn setX (a: Vector, idx: Number, obj: Any) void { _ = guile.scm_vector_set_x(a.s, idx.s, obj.s); }
+    pub fn setXZ(a: Vector, idx: usize,  obj: Any) void { _ = guile.scm_c_vector_set_x(a.s, idx, obj.s); }
 
     //vector-fill
     pub fn copy(a: Vector) Vector { return .{ .s = guile.scm_vector_copy(a.s) }; }

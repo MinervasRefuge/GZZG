@@ -30,7 +30,7 @@ pub const Stack = struct {
 
     pub fn id(a: Stack) Any { return .{ .s = guile.scm_stack_id(a.s) }; }
     pub fn len(a: Stack) Number { return .{ .s = guile.scm_stack_length(a.s) }; }
-    pub fn refE(a: Stack, idx: Number) Frame { return .{ .s = guile.scm_stack_ref(a.s, idx.s) }; }
+    pub fn ref(a: Stack, idx: Number) Frame { return .{ .s = guile.scm_stack_ref(a.s, idx.s) }; }
 
     pub fn iterator(a: Stack) ConstStackIterator {
         const head = a.refE(Number.from(0));

@@ -70,20 +70,20 @@ const scmSieve =
     \\(newline)
 ;
 
-pub fn gzzgNaiveSieve(limit: gzzg.Number) !gzzg.List {
+pub fn gzzgNaiveSieve(limit: gzzg.Number) !gzzg.ListOf(gzzg.Number) {
     var gc = gzzg.GuileGCAllocator{ .what = "sieve" };
     var alloc = gc.allocator();
 
     const zlimit = limit.toZ(usize);
 
     var table = try alloc.alloc(bool, zlimit);
-    var out = gzzg.List.init(.{});
+    var out = gzzg.ListOf(gzzg.Number).init(.{});
 
     defer alloc.free(table);
 
     for (2..zlimit) |i| {
         if (!table[i - 2]) {
-            out = out.cons(gzzg.Number.from(i).lowerZ());
+            out = out.cons(gzzg.Number.from(i));
 
             var mark_pos: usize = i;
             while (mark_pos < zlimit) : (mark_pos += i) {
@@ -109,7 +109,7 @@ pub fn main() !void {
     //_ = gzzg.evalE(scmSieve, null);     //todo fix
 
     const gSieveFN = gzzg.Procedure.define("gzzg-naïve-sieve", gzzgNaiveSieve, null, false);
-    const gSieveOut = gSieveFN.callE(.{gzzg.Number.from(100)}).raiseZ(gzzg.List).?;
+    const gSieveOut = gSieveFN.call(.{gzzg.Number.from(100)}).raiseZ(gzzg.List).?;
 
     std.debug.print("gzzg naïve sieve {d}:\t", .{100});
     gzzg.display(gSieveOut);

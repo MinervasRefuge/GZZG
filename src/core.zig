@@ -16,7 +16,7 @@ const Port    = gzzg.Port;
 const String  = gzzg.String;
 const Symbol  = gzzg.Symbol;
 
-pub fn evalE(str: anytype, module: ?Module) Any {
+pub fn eval(str: anytype, module: ?Module) Any {
     // string is expect to be in locale encoding
     // the c code just calls scm_from_locale_string.
     // _ = guile.scm_c_eval_string(…);
@@ -128,17 +128,17 @@ pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
     _ = guile.scm_display(a.s, Port.currentError().s);
 }
 
-//todo  ptr type checking
-pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) void {
+//todo ptr type checking
+pub fn catchException(key: [:0]const u8, comptime Captures: type, captures: *const Captures, comptime T: type) void {
     const ExpC = struct {
         fn body(data: ?*anyopaque) callconv(.c) guile.SCM {
-            t.body(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))));
+            T.body(@as(*const Captures, @alignCast(@ptrCast(data))));
 
             return guile.SCM_UNDEFINED;
         }
 
         fn handler(data: ?*anyopaque, _key: guile.SCM, args: guile.SCM) callconv(.c) guile.SCM {
-            t.handler(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))),
+            T.handler(@as(*const Captures, @alignCast(@ptrCast(data))),
                       Symbol{ .s = _key },
                       Any{ .s = args });
 
@@ -146,9 +146,26 @@ pub fn catchException(key: [:0]const u8, captures: anytype, comptime t: type) vo
         }
     };
 
+    //todo: is internal catch correct?
     _ = guile.scm_internal_catch(Symbol.from(key).s,
-                                 ExpC.body   , @constCast(@ptrCast(&captures)),
-                                 ExpC.handler, @constCast(@ptrCast(&captures)));
+                                 ExpC.body   , @constCast(@ptrCast(captures)),
+                                 ExpC.handler, @constCast(@ptrCast(captures)));
+}
+
+pub fn catchExceptionC(key: [:0]const u8, comptime Captures: type, captures: *const Captures,
+                       body:  *const fn (data: *Captures) callconv(.c) Any,
+                       handler: *const fn (data: *Captures, key: Symbol, args: Any) callconv(.c) Any) void {
+
+    //todo: is internal catch correct?
+    _ = guile.scm_internal_catch(Symbol.from(key).s,
+                                 @ptrCast(body)   , @constCast(@ptrCast(captures)),
+                                 @ptrCast(handler), @constCast(@ptrCast(captures)));
+
+    comptime { // check hacky cast
+        if (@sizeOf(Symbol) != @sizeOf(guile.SCM) or
+               @sizeOf(Any) != @sizeOf(guile.SCM)) 
+            @compileError("Bad Sizes");
+    }
 }
 
 pub fn orUndefined(a: anytype) GZZGOptionalType(@TypeOf(a), guile.SCM) {

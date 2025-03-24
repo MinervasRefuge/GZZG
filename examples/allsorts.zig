@@ -70,7 +70,7 @@ pub fn main() !void {
     gzzg.display(la);
     gzzg.newline();
 
-    if (gzzg.Number.from(5).divide(gzzg.Number.from(0))) |v| {
+    if (divide(gzzg.Number.from(5), gzzg.Number.from(0))) |v| {
         std.debug.print("{}\n", .{v});
     } else |_| {
         std.debug.print("error div zero catched\n", .{});
@@ -80,11 +80,31 @@ pub fn main() !void {
 
     const dbz = gzzg.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
 
+    _ = gzzg.eqZ(gzzg.Number.from(5), gzzg.Number.from(5));
+    
     _ = guile.scm_call_0(dbz.s);
 }
 
-fn divideByZero() !gzzg.Number {
-    const a = try gzzg.Number.from(10).divide(gzzg.Number.from(0));
-
+fn divideByZero() gzzg.Number {
+    const a = gzzg.Number.from(10).divide(gzzg.Number.from(0)); // long jmp from HEEEeeeaaarrrr.r.r...
+    
     return a.sum(gzzg.Number.from(2));
+}
+
+fn divide(a: gzzg.Number, b: ?gzzg.Number) !gzzg.Number {
+    var out: error{numericalOverflow}!gzzg.Number = undefined;
+    const captures = .{ a, b, &out };
+    const Captures = @TypeOf(captures);
+
+    gzzg.catchException("numerical-overflow", Captures, &captures, struct {
+        pub fn body(data: *const Captures) void {
+            data[2].* = data[0].divide(data[1]);
+        }
+
+        pub fn handler(data: *const Captures, _: gzzg.Symbol, _: gzzg.Any) void {
+            data[2].* = error.numericalOverflow;
+        }
+    });
+
+    return out;
 }

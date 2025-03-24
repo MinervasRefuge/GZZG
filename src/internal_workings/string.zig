@@ -371,7 +371,7 @@ test "Static String: substring" {
     try expectEql(gstr.lenZ(), str.len);
 
     { // snip "truly"
-        const gss = gstr.substringE(Num.from(23), Num.from(28));
+        const gss = gstr.substring(Num.from(23), Num.from(28));
 
         // Should still share the same Buffer
         try expectSamePtr(&buf, Layout.from(gss).buffer.strbuf);
@@ -406,7 +406,7 @@ test "Runtime String" {
     lay[0] = .init(buf, .just_readable);
 
     { // snip "Colour"
-        const gss = lay[0].ref().substringE(Num.from(11), null);
+        const gss = lay[0].ref().substring(Num.from(11), null);
 
         // Should still share the same Buffer
         try expectSamePtr(buf, Layout.from(gss).buffer.strbuf);

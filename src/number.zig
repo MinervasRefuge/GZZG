@@ -5,6 +5,8 @@ const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 const iw    = gzzg.internal_workings;
 
+const orUndefined = gzzg.orUndefined;
+
 const Any       = gzzg.Any;
 const Character = gzzg.Character;
 const Boolean   = gzzg.Boolean;
@@ -336,7 +338,6 @@ pub const Number = struct {
         var s: guile.SCM = undefined;
         var r: guile.SCM = undefined;
 
-        // can raise exception
         guile.scm_exact_integer_sqrt(k.s, &s, &r);
 
         return .{ .{ .s = s }, .{ .s = r } };
@@ -371,52 +372,10 @@ pub const Number = struct {
     //
     //
 
-    pub fn sum(a: Number, b: ?Number) Number {
-        const as = a.s;
-        const bs = gzzg.orUndefined(b);
-
-        return .{ .s = guile.scm_sum(as, bs) };
-    }
-
-    pub fn difference(a: Number, b: ?Number) Number {
-        const as = a.s;
-        const bs = gzzg.orUndefined(b);
-
-        return .{ .s = guile.scm_difference(as, bs) };
-    }
-
-    pub fn product(a: Number, b: ?Number) Number {
-        const as = a.s;
-        const bs = gzzg.orUndefined(b);
-
-        return .{ .s = guile.scm_product(as, bs) };
-    }
-
-    pub fn divide(a: Number, b: ?Number) !Number {
-        const as = a.s;
-        const bs = gzzg.orUndefined(b);
-
-        var out: error{numericalOverflow}!Number = undefined;
-
-        gzzg.catchException("numerical-overflow", .{ as, bs, &out }, struct {
-            pub fn body(data: anytype) void {
-                data[2].* = .{ .s = guile.scm_divide(data[0], data[1]) };
-            }
-
-            pub fn handler(data: anytype, _: Symbol, _: gzzg.Any) void {
-                data[2].* = error.numericalOverflow;
-            }
-        });
-
-        return out;
-    }
-
-    pub fn divideE(a: Number, b: ?Number) Number {
-        const as = a.s;
-        const bs = gzzg.orUndefined(b);
-
-        return .{ .s = guile.scm_divide(as, bs) };
-    }
+    pub fn sum       (a: Number, b: ?Number) Number { return .{ .s = guile.scm_sum       (a.s, orUndefined(b)) }; }
+    pub fn difference(a: Number, b: ?Number) Number { return .{ .s = guile.scm_difference(a.s, orUndefined(b)) }; }
+    pub fn product   (a: Number, b: ?Number) Number { return .{ .s = guile.scm_product   (a.s, orUndefined(b)) }; }
+    pub fn divide    (a: Number, b: ?Number) Number { return .{ .s = guile.scm_divide    (a.s, orUndefined(b)) }; }
 
     pub fn onePlus (a: Number)            Number { return .{ .s = guile.scm_oneplus(a.s) }; }
     pub fn oneMinus(a: Number)            Number { return .{ .s = guile.scm_oneminus(a.s) }; }
