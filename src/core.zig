@@ -74,8 +74,23 @@ pub fn equal(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), Boolean) {
     return .{ .s = guile.scm_eqv_p(a.s, b.s) };
 }
 
+// ~scm_is_eq~ is a macro that depends on ~SCM_UNPACK~ which didn't get translated due to ~volatile~ keyword. So...
+// 
+// C pointers should only be compared if they are elements of the same array or struct object. A
+// round trip from ~void *~ to ~uintptr_t~ to ~void *~ is consider "safe". Hence the cast. Also see
+// [[https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Pointer_002dInteger-Conversion.html][c intro | pointer conversion]].
+// 
+// #+BEGIN_SRC c
+//   typedef uintptr_t scm_t_bits;
+//   #define SCM_UNPACK(x) ((scm_t_bits) (0? (*(volatile SCM *)0=(x)): x))
+//   #define scm_is_eq(x, y) (SCM_UNPACK (x) == SCM_UNPACK (y))
+// #+END_SRC
+// 
+// Zig allows ptr comparison as long as both types are the same ~&T == &T~ otherwise ~@intFromPtr~
+// is the alternative. The equivalent with visual intent should be...
+
 pub fn eqZ(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), bool) {
-    return guile.scm_is_eq(a.s, b.s) != 0;
+    return @intFromPtr(a.s) == @intFromPtr(b.s);
 }
 
 // todo: remember_upto_here

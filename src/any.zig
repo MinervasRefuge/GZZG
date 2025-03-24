@@ -5,12 +5,16 @@ const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const GZZGType = gzzg.contracts.GZZGType;
+
 const Boolean = gzzg.Boolean;
 
 pub const Any = extern struct {
+    pub const ELISP_NIL   = Any{ .s = guile.SCM_ELISP_NIL };
+    pub const EOF         = Any{ .s = guile.SCM_EOF_VALUE };
+    pub const EOL         = Any{ .s = guile.SCM_EOL };
     pub const UNDEFINED   = Any{ .s = guile.SCM_UNDEFINED };
     pub const UNSPECIFIED = Any{ .s = guile.SCM_UNSPECIFIED };
-    // todo: consider EOF, EOL,ELISP_NILL?
 
     pub const guile_name = "any";
 
@@ -19,17 +23,23 @@ pub const Any = extern struct {
     pub fn is (_: guile.SCM) Boolean { return Boolean.TRUE; } // what about `guile.SCM_UNDEFINED`?
     pub fn isZ(_: guile.SCM) bool    { return true; }
 
-    pub fn lowerZ(a: Any) Any { return a; }
+    pub inline fn lowerZ(a: Any) Any { return a; }
 
-    pub fn raiseZ(a: Any, SCMType: type) ?SCMType {
-        //todo: fix
-        //assertSCMType(SCMType);
-
+    pub fn raiseZ(a: Any, comptime SCMType: type) GZZGType(SCMType, ?SCMType) {
         if (!@hasDecl(SCMType, "isZ"))
             @compileError("Missing `isZ` for type narrowing (`raise`) on " ++ @typeName(SCMType));
 
+        //todo: add child type check
+
         return if (SCMType.isZ(a.s)) .{ .s = a.s } else null;
     }
+
+    pub inline fn raiseUnsafeZ(a: Any, comptime SCMType: type) GZZGType(SCMType, SCMType) {
+        return .{ .s = a.s };
+    }
+
+    pub fn isEOF(a: Any) Boolean { return .{ .s = guile.scm_eof_object_p(a.s) }; }
+    pub fn isEOFZ(a: Any) bool { return gzzg.eqZ(a, EOF); } // this is identical to the c code.
 
     comptime {
         std.debug.assert(@sizeOf(@This()) == @sizeOf(guile.SCM));
