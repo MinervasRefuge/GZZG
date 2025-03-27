@@ -39,7 +39,6 @@ pub const Module = struct {
     }
 };
 
-
 // todo: cover 6.18.10 Accessing Modules from C
 pub const Procedure = struct {    
     s: guile.SCM,
@@ -105,9 +104,9 @@ pub const Procedure = struct {
         return out;
     }
 
-    pub fn is (a: guile.SCM)  Boolean { return .{ .s = guile.scm_procedure_p(a) }; }
-    pub fn isZ(a: guile.SCM)  bool    { return is(a).toZ(); }
-    pub fn lowerZ(a: Boolean) Any     { return .{ .s = a.s }; }
+    pub fn is (a: guile.SCM)    Boolean { return .{ .s = guile.scm_procedure_p(a) }; }
+    pub fn isZ(a: guile.SCM)    bool    { return is(a).toZ(); }
+    pub fn lowerZ(a: Procedure) Any     { return .{ .s = a.s }; }
 
     //
     //
@@ -147,6 +146,27 @@ pub const Procedure = struct {
         _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };
+
+pub fn ThunkOf(T: type) GZZGType(T, type) {
+    return struct {
+        s: guile.SCM,
+
+        pub const guile_name = "thunk";
+
+        pub fn is (a: guile.SCM)  Boolean { return .{ .s = guile.scm_thunk_p(a) }; }
+        pub fn isZ(a: guile.SCM)  bool    { return is(a).toZ(); }
+        pub fn lowerZ(a: @This()) Any     { return .{ .s = a.s }; }
+        pub fn lowerProcedure(a: @This()) Procedure { return .{ .s = a.s }; }
+
+        pub fn call(a: @This()) T {
+            return .{ .s = guile.scm_call_0(a.s) };
+        }
+
+        comptime {
+            _ = gzzg.contracts.GZZGType(@This(), void);
+        }
+    };
+}
 
 fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM) {
     const fi = @typeInfo(@TypeOf(f)).@"fn";

@@ -113,19 +113,19 @@ pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
 }
 
 pub fn newline() void {
-    _ = guile.scm_newline(Port.currentOutput().s);
+    _ = guile.scm_newline(Port.current.output().s);
 }
 
 pub fn display(a: anytype) GZZGType(@TypeOf(a), void) {
-    _ = guile.scm_display(a.s, Port.currentOutput().s);
+    _ = guile.scm_display(a.s, Port.current.output().s);
 }
 
 pub fn newlineErr() void {
-    _ = guile.scm_newline(Port.currentError().s);
+    _ = guile.scm_newline(Port.current.@"error"().s);
 }
 
 pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
-    _ = guile.scm_display(a.s, Port.currentError().s);
+    _ = guile.scm_display(a.s, Port.current.@"error"().s);
 }
 
 //todo ptr type checking
@@ -265,5 +265,54 @@ pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
         }
 
         pub fn lowerZ(a: @This()) Any { return .{ .s = a.s }; }
+    };
+}
+
+// §6.11.7 Returning and Accepting Multiple Values
+pub fn MultiValue(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
+    if (scmTypes.len < 2) @compileError("Should be more than one value type");
+    const len = scmTypes.len;
+    const typeArray:[len]type = undefined;
+    //comptime var name = "(values";
+
+    inline for(scmTypes, 0..) |SCMType, idx| {
+        typeArray[idx] = SCMType;
+        //name = name ++ " " ++ SCMType.guile_name;
+    }
+    
+    const ValuesTuple = std.meta.Tuple(&typeArray);
+    //name = name ++ ")";
+
+    return struct {
+        s: guile.SCM,
+
+        pub const Values = scmTypes;
+        pub const Tuple = ValuesTuple;
+        pub const guile_name = "values";//name;
+
+        pub fn is (a: guile.SCM) Boolean { return .from(isZ(a)); }
+        pub fn isZ(a: guile.SCM) bool    { return guile.scm_c_nvalues(a) != 1; }
+        pub fn lowerZ(a: @This()) Any    { return .{ .s = a.s }; }
+        
+        pub fn toTuple(a: @This()) Tuple {
+            std.debug.assert(guile.scm_c_nvalues(a.s) == len);
+            
+            const v: Tuple = undefined;
+            inline for (0..len) |idx| v[idx] = guile.scm_c_value_ref(a.s, idx);
+            return v;
+        }
+
+        pub fn fromTuple(v: Tuple) @This() {
+            return .{ .s = guile.scm_values(gzzg.ListOf(Any).initUnsafe(v)) };
+        }
+
+        // Note that this looses the typeing
+        pub fn fromArray(v: [len]guile.SCM) @This() {
+            return .{ .s = guile.scm_c_values(v.ptr, v.len) };
+        }
+
+        comptime {
+            _ = gzzg.contracts.GZZGType(@This(), void);
+        }
     };
 }

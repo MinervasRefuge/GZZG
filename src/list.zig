@@ -56,7 +56,17 @@ pub fn ListOf(comptime T: type) type {
         pub fn len (a: Self) Number { return .{ .s = guile.scm_length(a.s) }; }
         pub fn lenZ(a: Self) c_long { return guile.scm_ilength(a.s); }
         
-        pub fn init(lst: anytype) GZZGTypes(@TypeOf(lst), Self) {
+        pub fn init(lst: anytype) GZZGTypes(@TypeOf(lst), Self) { // todo: fix type constraint on the input list
+            const SCMTuple = std.meta.Tuple(&[1]type{guile.SCM} ** (lst.len + 1));
+            var outlst: SCMTuple  = undefined;
+            
+            inline for (lst, 0..) |scm, idx| outlst[idx] = scm.s;
+            outlst[lst.len] = guile.SCM_UNDEFINED;
+            
+            return .{ .s = @call(.auto, guile.scm_list_n, outlst) };
+        }
+
+        pub fn initUnsafe(lst: anytype) GZZGTypes(@TypeOf(lst), Self) {
             const SCMTuple = std.meta.Tuple(&[1]type{guile.SCM} ** (lst.len + 1));
             var outlst: SCMTuple  = undefined;
             

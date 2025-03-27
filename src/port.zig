@@ -10,13 +10,16 @@ const GZZGCustomPort = gzzg.contracts.GZZGCustomPort;
 const WrapAsCFn      = gzzg.contracts.WrapAsCFn;
 
 const orUndefined = gzzg.orUndefined;
+const MultiValues = gzzg.MultiValue;
 
 const Any        = gzzg.Any;
 const Boolean    = gzzg.Boolean;
 const ByteVector = gzzg.ByteVector;
 const Number     = gzzg.Number;
+const Procedure  = gzzg.Procedure;
 const String     = gzzg.String;
 const Symbol     = gzzg.Symbol;
+const ThunkOf    = gzzg.ThunkOf;
 
 //                                          ------------
 //                                          Port §6.12.1
@@ -166,7 +169,7 @@ pub const Port = struct {
     // * DONE §6.12.7 Random Access                        :complete:allFunctions:
     // 
 
-    pub const Whence = enum(u2) {
+    pub const Whence = enum(u2) { // can ~c_int~ be used here? for a lazy cast on CustomPort seek fn?
         // Guile uses the same values are ~fseek~
         const S = std.os.linux.SEEK;
         
@@ -185,24 +188,6 @@ pub const Port = struct {
     pub fn ftell(a: Port) Number { return .{ .s = guile.scm_ftell(a.s) }; }
     pub fn truncateFile(a: Port, length: ?Number) void { guile.scm_truncate_file(a.s, orUndefined(length)); }
 
-    // * DONE §6.12.9 Default Ports                          :complete:allFunctions:
-    // 
-
-    pub fn currentInput () Port { return .{ .s = guile.scm_current_input_port () }; }
-    pub fn currentOutput() Port { return .{ .s = guile.scm_current_output_port() }; }
-    pub fn currentError () Port { return .{ .s = guile.scm_current_error_port () }; }
-
-    pub fn setCurrentInput (a: Port) void { _ = guile.scm_set_current_input_port (a.s); }
-    pub fn setCurrentOutput(a: Port) void { _ = guile.scm_set_current_output_port(a.s); }
-    pub fn setCurrentError (a: Port) void { _ = guile.scm_set_current_error_port (a.s); }
-
-    pub fn dynwindCurrentInput (a: Port) void { guile.scm_dynwind_current_input_port (a.s); }
-    pub fn dynwindCurrentOutput(a: Port) void { guile.scm_dynwind_current_output_port(a.s); }
-    pub fn dynwindCurrentError (a: Port) void { guile.scm_dynwind_current_error_port (a.s); }
-
-    // * TODO §6.12.10 Type of Ports                                    :incomplete:
-    // 
-
     // * DONE §6.12.12 Using Ports from C                  :complete:allFunctions:
     // 
 
@@ -219,19 +204,84 @@ pub const Port = struct {
     pub fn ungetByteZ (a: Port, byte: u8)    void { guile.scm_unget_byte(byte, a.s); } 
     
     // todo: is it i32/u32 or u21?
-    pub fn ungetC(a: Port, c: i32) void { guile.scm_ungetc(c, a.s); }
-    pub fn putLatin1(a: Port, buffer: []const u8)  void { guile.scm_c_put_latin1_chars(a.s, buffer.ptr, buffer.len); }
-    pub fn putUTF32 (a: Port, buffer: []const u32) void { guile.scm_c_put_utf32_chars (a.s, buffer.ptr, buffer.len); }
+    pub fn ungetZ(a: Port, c: i32) void { guile.scm_ungetc(c, a.s); }
+    pub fn putLatin1Z(a: Port, buffer: []const u8)  void { guile.scm_c_put_latin1_chars(a.s, buffer.ptr, buffer.len); }
+    pub fn putUTF32Z (a: Port, buffer: []const u32) void { guile.scm_c_put_utf32_chars (a.s, buffer.ptr, buffer.len); }
 
     // Extra?
 
     pub fn flush(a: Port) void { guile.scm_flush(a.s); }
+
+    //
+
+    pub const current          = _current;
+    pub const file_port        = _file_port;
+    pub const byte_vector_port = _byte_vector_port;
+    pub const string_port      = _string_port;
+    pub const void_port        = _void_port;
     
     comptime {
         _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };
 
+// * DONE §6.12.9 Default Ports                          :complete:allFunctions:
+const _current = struct {
+    pub fn input    () Port { return .{ .s = guile.scm_current_input_port () }; }
+    pub fn output   () Port { return .{ .s = guile.scm_current_output_port() }; }
+    pub fn @"error" () Port { return .{ .s = guile.scm_current_error_port () }; }
+
+    pub fn setInput (a: Port) void { _ = guile.scm_set_current_input_port (a.s); }
+    pub fn setOutput(a: Port) void { _ = guile.scm_set_current_output_port(a.s); }
+    pub fn setError (a: Port) void { _ = guile.scm_set_current_error_port (a.s); }
+
+    pub fn dynwindInput (a: Port) void { guile.scm_dynwind_current_input_port (a.s); }
+    pub fn dynwindOutput(a: Port) void { guile.scm_dynwind_current_output_port(a.s); }
+    pub fn dynwindError (a: Port) void { guile.scm_dynwind_current_error_port (a.s); }
+};
+
+// * DONE §6.12.10 Type of Ports                         :complete:allFunctions:
+// todo: consider typing these ports.
+const _file_port = struct {
+    pub fn openWithEncoding(file: String, open_mode: String, guess_encoding: ?Boolean, encoding: ?String) Port {
+        return .{ .s = guile.scm_open_file_with_encoding(file.s, open_mode.s, orUndefined(guess_encoding), orUndefined(encoding) ) };
+    }
+
+    pub fn open(file: String, open_mode: String) Port { return .{ .s = guile.scm_open_file(file.s, open_mode.s) }; }
+    // todo: check return type
+    pub fn mode(a: Port) String { return .{ .s = guile.scm_port_mode(a.s) }; }
+    
+    pub fn filename(a: Port) ?String {
+        const file = guile.scm_port_filename(a.s);
+        return if (Boolean.isZ(file)) null else .{ .s = file };
+    }
+    
+    pub fn filenameX(a: ?Port, file: String) void { guile.scm_set_port_filename_x(orUndefined(a), file.s); }
+    pub fn isFile(a: Port) Boolean { return .{ .s = guile.scm_file_port_p(a.s) }; }
+};
+
+const _byte_vector_port = struct {
+    const Values = MultiValues(.{ Port, ThunkOf(ByteVector) });
+
+    // transcoder field not support in Guile.
+    pub fn openInput(bv: ByteVector) Port { return .{ .s = guile.scm_open_bytevector_input_port(bv.s, Any.UNDEFINED.s) }; }
+    pub fn openOutput() Values.Tuple { 
+        const vals: Values = .{ .s = guile.scm_open_bytevector_output_port(Any.UNDEFINED.s) };
+        return vals.asTuple();
+    }
+};
+
+const _string_port = struct {
+    pub fn callWithOutput(p1: Procedure)                String { return .{ .s = guile.scm_call_with_output_string(p1.s) }; }
+    pub fn callWithInput (input: String, p1: Procedure) Any    { return .{ .s = guile.scm_call_with_input_string(input.s, p1.s) }; }
+    pub fn openInput (input: String) Port   { return .{ .s = guile.scm_open_input_string(input.s) }; }
+    pub fn openOutput()              Port   { return .{ .s = guile.scm_open_output_string() }; }
+    pub fn getOutputString(a: Port)  String { return .{ .s = guile.scm_get_output_string(a.s) }; }
+};
+
+const _void_port = struct {
+    pub fn make(mode: String) Port { return .{ .s = guile.scm_sys_make_void_port(mode.s) }; }
+};
 
 // * TODO 6.12.13 Implementing New Port Types in C                  :incomplete:
 

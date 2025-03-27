@@ -47,6 +47,8 @@ pub const Hook   = @import("hook.zig").Hook;
 
 pub const Module      = @import("program.zig").Module;
 pub const Procedure   = @import("program.zig").Procedure;
+pub const ThunkOf     = @import("program.zig").ThunkOf;
+pub const Thunk       = ThunkOf(Any);
 pub const ForeignType = @import("foreign_object.zig").ForeignType;
 
 //
@@ -89,6 +91,7 @@ pub const Frame = @import("vm.zig").Frame;
 pub const initThreadForGuile = guile.scm_init_guile;
 
 const core = @import("core.zig");
+pub const MultiValue              = core.MultiValue;
 pub const StaticCache             = core.StaticCache;
 pub const UnionSCM                = core.UnionSCM;
 pub const catchException          = core.catchException;
