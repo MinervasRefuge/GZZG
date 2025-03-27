@@ -15,7 +15,7 @@ const MultiValues = gzzg.MultiValue;
 const Any        = gzzg.Any;
 const Boolean    = gzzg.Boolean;
 const ByteVector = gzzg.ByteVector;
-const Number     = gzzg.Number;
+const Integer    = gzzg.Integer;
 const Procedure  = gzzg.Procedure;
 const String     = gzzg.String;
 const Symbol     = gzzg.Symbol;
@@ -47,23 +47,23 @@ pub const Port = struct {
     // * DONE §6.12.2 Binary I/O                             :complete:allFunctions:
     //
     
-    pub fn getU8(a: Port) EOF!Number {
+    pub fn getU8(a: Port) EOF!Integer {
         const data = Any{ .s = guile.scm_get_u8(a.s) };
-        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Number);
+        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Integer);
     }
 
-    pub fn lookaheadU8(a: Port) EOF!Number {
+    pub fn lookaheadU8(a: Port) EOF!Integer {
         const data = Any{ .s = guile.scm_get_u8(a.s) };
-        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Number);
+        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Integer);
     }
 
-    pub fn getByteVectorN(a: Port, count: Number) ByteVector {
+    pub fn getByteVectorN(a: Port, count: Integer) ByteVector {
         return .{ .s = guile.scm_get_bytevector_n(a.s, count.s) };
     }
     
-    pub fn getByteVectorNX(a: Port, bv: ByteVector, start: Number, count: Number) EOF!Number {
+    pub fn getByteVectorNX(a: Port, bv: ByteVector, start: Integer, count: Integer) EOF!Integer {
         const data = Any{ .s = guile.scm_get_bytevector_n_x(a.s, bv.s, start.s, count.s) };
-        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Number);
+        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Integer);
     }
    
     pub fn getByteVectorSome(a: Port) EOF!ByteVector {
@@ -71,9 +71,9 @@ pub const Port = struct {
         return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(ByteVector);
     }
 
-    pub fn getByteVectorSomeX(a: Port, bv: ByteVector, start: Number, count: Number) EOF!Number {
+    pub fn getByteVectorSomeX(a: Port, bv: ByteVector, start: Integer, count: Integer) EOF!Integer {
         const data = Any{ .s = guile.scm_get_bytevector_some_x(a.s, bv.s, start.s, count.s) };
-        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Number);
+        return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(Integer);
     }
   
     pub fn getByteVectorAll(a: Port) EOF!ByteVector {
@@ -81,15 +81,15 @@ pub const Port = struct {
         return if (data.isEOFZ()) error.EOF else data.raiseUnsafeZ(ByteVector);
     }
 
-    pub fn ungetByteVector(a: Port, bv: ByteVector, start: ?Number, count: ?Number) void {
+    pub fn ungetByteVector(a: Port, bv: ByteVector, start: ?Integer, count: ?Integer) void {
         _ = guile.scm_unget_bytevector(a.s, bv.s, orUndefined(start), orUndefined(count));
     }
 
-    pub fn putU8(a: Port, octet: Number) void {
+    pub fn putU8(a: Port, octet: Integer) void {
         _ = guile.scm_put_u8(a.s, octet.s);
     }
 
-    pub fn putByteVector(a: Port, bv: ByteVector, start: ?Number, count: ?Number) void {
+    pub fn putByteVector(a: Port, bv: ByteVector, start: ?Integer, count: ?Integer) void {
         _ = guile.scm_put_bytevector(a.s, bv.s, orUndefined(start), orUndefined(count));
     }
         
@@ -148,7 +148,7 @@ pub const Port = struct {
         
         none,
         line,
-        block:?Number,
+        block:?Integer,
 
         pub fn get(a: @This()) Symbol {
             return switch(a) {
@@ -178,15 +178,15 @@ pub const Port = struct {
         end     = S.END,
 
         // Integer
-        pub fn toNumber(a: @This()) Number {
+        pub fn toInteger(a: @This()) Integer {
             return .from(@intFromEnum(a));
         }
     };
 
     //todo Integer
-    pub fn seek(a: Port, offset: Number, whence: Whence) Number { return .{ .s = guile.scm_seek(a.s, offset.s, whence.toNumber()) }; }
-    pub fn ftell(a: Port) Number { return .{ .s = guile.scm_ftell(a.s) }; }
-    pub fn truncateFile(a: Port, length: ?Number) void { guile.scm_truncate_file(a.s, orUndefined(length)); }
+    pub fn seek(a: Port, offset: Integer, whence: Whence) Integer { return .{ .s = guile.scm_seek(a.s, offset.s, whence.toInteger()) }; }
+    pub fn ftell(a: Port) Integer { return .{ .s = guile.scm_ftell(a.s) }; }
+    pub fn truncateFile(a: Port, length: ?Integer) void { guile.scm_truncate_file(a.s, orUndefined(length)); }
 
     // * DONE §6.12.12 Using Ports from C                  :complete:allFunctions:
     // 

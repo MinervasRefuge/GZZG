@@ -9,7 +9,7 @@ const GZZGTypes = gzzg.contracts.GZZGTypes;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number  = gzzg.Number;
+const Integer = gzzg.Integer;
 
 //                                           -----------
 //                                           Pair §6.6.8
@@ -53,7 +53,7 @@ pub fn ListOf(comptime T: type) type {
         
         pub fn lowerZ(a: Self) Any { return .{ .s = a.s }; }
         
-        pub fn len (a: Self) Number { return .{ .s = guile.scm_length(a.s) }; }
+        pub fn len (a: Self) Integer { return .{ .s = guile.scm_length(a.s) }; }
         pub fn lenZ(a: Self) c_long { return guile.scm_ilength(a.s); }
         
         pub fn init(lst: anytype) GZZGTypes(@TypeOf(lst), Self) { // todo: fix type constraint on the input list
@@ -84,7 +84,7 @@ pub fn ListOf(comptime T: type) type {
         pub fn reverse(a: Self)          Self  { return .{ .s = guile.scm_reverse(a.s) }; }
         // pub fn reverseX(a: *List, newtail: Any) void { 
         
-        pub fn ref    (a: Self, idx: Number) T { return .{ .s = guile.scm_list_ref(a.s, idx.s) }; }
+        pub fn ref    (a: Self, idx: Integer) T { return .{ .s = guile.scm_list_ref(a.s, idx.s) }; }
         // list-tail
         // list-head
 

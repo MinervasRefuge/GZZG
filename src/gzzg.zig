@@ -14,6 +14,7 @@ pub const Any = @import("any.zig").Any;
 // §6.6 Data Types
 pub const Boolean    = @import("boolean.zig").Boolean;
 pub const Number     = @import("number.zig").Number;
+pub const Integer    = @import("number.zig").Integer;
 pub const Character  = @import("string.zig").Character;
 // Character Sets
 pub const String     = @import("string.zig").String;

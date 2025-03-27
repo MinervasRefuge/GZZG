@@ -7,7 +7,7 @@ const guile = gzzg.guile;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number  = gzzg.Number;
+const Integer = gzzg.Integer;
 const Symbol  = gzzg.Symbol;
 
 //                                         ---------------
@@ -29,11 +29,11 @@ pub const Stack = struct {
     pub fn lowerZ(a: Stack) Any { return .{ .s = a.s }; }
 
     pub fn id(a: Stack) Any { return .{ .s = guile.scm_stack_id(a.s) }; }
-    pub fn len(a: Stack) Number { return .{ .s = guile.scm_stack_length(a.s) }; }
-    pub fn ref(a: Stack, idx: Number) Frame { return .{ .s = guile.scm_stack_ref(a.s, idx.s) }; }
+    pub fn len(a: Stack) Integer { return .{ .s = guile.scm_stack_length(a.s) }; }
+    pub fn ref(a: Stack, idx: Integer) Frame { return .{ .s = guile.scm_stack_ref(a.s, idx.s) }; }
 
     pub fn iterator(a: Stack) ConstStackIterator {
-        const head = a.refE(Number.from(0));
+        const head = a.ref(Integer.from(0));
         return .{
             .head = head,
             .frame = head,
@@ -118,9 +118,9 @@ pub const Frame = struct {
     
     // Note: The following procedures are based on the .h file, not the info doc
 
-    pub fn address(a: Frame)            Number { return .{ .s = guile.scm_frame_address(a.s) }; }
-    pub fn stackPointer(a: Frame)       Number { return .{ .s = guile.scm_frame_stack_pointer(a.s) }; }
-    pub fn instructionPointer(a: Frame) Number { return .{ .s = guile.scm_frame_instruction_pointer(a.s) }; }
+    pub fn address(a: Frame)            Integer { return .{ .s = guile.scm_frame_address(a.s) }; }
+    pub fn stackPointer(a: Frame)       Integer { return .{ .s = guile.scm_frame_stack_pointer(a.s) }; }
+    pub fn instructionPointer(a: Frame) Integer { return .{ .s = guile.scm_frame_instruction_pointer(a.s) }; }
 
     // todo: check the following return types
     pub fn returnAddress(a: Frame) Any { return .{ .s = guile.scm_frame_return_address(a.s) }; }
@@ -189,8 +189,8 @@ pub const VM = struct {
     // SCM_API SCM scm_call_with_stack_overflow_handler (SCM limit, SCM thunk,
     //                                                   SCM handler);
     
-    pub fn traceLevel() Number { return .{ .s = guile.scm_vm_trace_level() }; }
-    pub fn traceLevelX(a: Number) void { return .{ .s = guile.scm_set_vm_trace_level_x(a.s) }; }
+    pub fn traceLevel() Integer { return .{ .s = guile.scm_vm_trace_level() }; }
+    pub fn traceLevelX(a: Integer) void { return .{ .s = guile.scm_set_vm_trace_level_x(a.s) }; }
     pub fn engine() EngineEnum {
         // shouldn't fail with null
         return EngineEnum.fromSymbol(.{ .s = guile.scm_vm_engine() }).?;

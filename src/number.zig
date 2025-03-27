@@ -494,3 +494,54 @@ pub const Number = struct {
         _ = gzzg.contracts.GZZGType(@This(), void);
     }
 };
+
+pub const Integer = struct {
+    s: guile.SCM,
+
+    pub const guile_name = "integer";
+
+    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_exact_integer_p (a) }; }
+    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_exact_integer(a) != 0; }
+    pub fn lowerZ(a: Integer) Any { return .{ .s = a.s }; }
+    pub fn lowerNumber(a: Integer) Number { return .{ .s = a.s }; }
+
+    pub fn from(n: anytype) Integer {
+        const scm = switch (@typeInfo(@TypeOf(n))) {
+            .comptime_int,
+            .int => Number.from(n),
+            else => @compileError("Not an Integer"),
+        };
+
+        return .{ .s = scm.s };
+    }
+
+    pub fn toZ(a: Integer, comptime T: type) T {
+        return switch (@typeInfo(T)) {
+            .int => Number.toZ(.{ .s = a.s }, T),
+            else => @compileError("Not an Integer"),
+        };
+    }
+
+    pub fn sum       (a: Integer, b: ?Integer) Integer { return .{ .s = guile.scm_sum       (a.s, orUndefined(b)) }; }
+    pub fn difference(a: Integer, b: ?Integer) Integer { return .{ .s = guile.scm_difference(a.s, orUndefined(b)) }; }
+    pub fn product   (a: Integer, b: ?Integer) Integer { return .{ .s = guile.scm_product   (a.s, orUndefined(b)) }; }
+    pub fn divide    (a: Integer, b: ?Integer) Number  { return .{ .s = guile.scm_divide    (a.s, orUndefined(b)) }; }
+
+     // §6.6.2.13 Bitwise Operations
+    pub fn logAnd (a: Integer, b: Integer)   Integer  { return .{ .s = guile.scm_logand(a.s, b.s) }; }
+    pub fn logIOr (a: Integer, b: Integer)   Integer  { return .{ .s = guile.scm_logior(a.s, b.s) }; }
+    pub fn logXOr (a: Integer, b: Integer)   Integer  { return .{ .s = guile.scm_logxor(a.s, b.s) }; }
+    pub fn logNot (a: Integer, b: Integer)   Integer  { return .{ .s = guile.scm_lognot(a.s, b.s) }; }
+    pub fn logTest(a: Integer, b: Integer)   Boolean  { return .{ .s = guile.scm_logtest(a.s, b.s) }; }
+    pub fn logBit (a: Integer, idx: Integer) Boolean  { return .{ .s = guile.scm_logbit_p(a.s, idx.s) }; }
+    
+    pub fn ash        (a: Integer, count: Integer) Integer { return .{ .s = guile.scm_ash(a.s, count.s) }; }
+    pub fn roundAsh   (a: Integer, count: Integer) Integer { return .{ .s = guile.scm_round_ash(a.s, count.s) }; }
+    pub fn logCount   (a: Integer)                 Integer { return .{ .s = guile.scm_logcount(a.s) }; }
+    pub fn integerLen (a: Integer)                 Integer { return .{ .s = guile.scm_integer_length(a.s) }; }
+    pub fn integerExpt(a: Integer, k: Integer)     Integer { return .{ .s = guile.scm_integer_expt(a.s, k.s) }; }
+    pub fn bitExtract (a: Integer, start: Integer, end: Integer) Integer
+        { return .{ .s = guile.scm_bit_extract(a.s, start.s, end.s) }; }
+
+    pub fn equal(x: Integer, y: Integer) Boolean { return .{ .s = guile.scm_num_eq_p(x.s, y.s) }; }
+};

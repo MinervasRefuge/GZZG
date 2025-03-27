@@ -6,7 +6,7 @@ const guile = gzzg.guile;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number  = gzzg.Number;
+const Integer = gzzg.Integer;
 const Symbol  = gzzg.Symbol;
 
 //                                       -------------------
@@ -61,76 +61,76 @@ pub const ByteVector = struct {
 
     pub fn nativeEndianness() Symbol { return .{ .s = guile.scm_native_endianness() }; }
     
-    pub fn len(a: ByteVector) Number { return .{ .s = guile.scm_bytevector_length(a.s)}; }
+    pub fn len(a: ByteVector) Integer { return .{ .s = guile.scm_bytevector_length(a.s)}; }
     //pub fn lenZ(a: ByteVector) usize { return guile.scm_c_bytevector_length(a.s); }
     pub fn lenZ(a: ByteVector) usize { return guile.SCM_BYTEVECTOR_LENGTH(a.s); }
     
     pub fn equal(a: ByteVector, b: ByteVector) Boolean { return .{ .s = guile.scm_bytevector_eq_p(a.s, b.s) }; }
 
     pub fn copy(a: ByteVector) ByteVector { return .{ .s = guile.scm_bytevector_copy(a.s) }; }
-    pub fn copyX(src: ByteVector, src_start: Number, dest: ByteVector, dest_start: Number, length: Number) void
+    pub fn copyX(src: ByteVector, src_start: Integer, dest: ByteVector, dest_start: Integer, length: Integer) void
         { _ = guile.scm_bytevector_copy_x(src.s, src_start.s, dest.s, dest_start.s, length.s); }
 
-    pub fn contents(a: ByteVector, t: type) []t {
-        switch (t) {
-            u8, i8 => .{ .ptr = @as([*c]t, guile.SCM_BYTEVECTOR_CONTENTS(a.s)), .len = lenZ(a.s)},
+    pub fn contents(a: ByteVector, comptime C: type) []C {
+        switch (C) {
+            u8, i8 => .{ .ptr = @as([*c]C, guile.SCM_BYTEVECTOR_CONTENTS(a.s)), .len = lenZ(a.s)},
             else => @compileError("Expected u8 or i8 for bytevector contents type")
         }
     }
 
     // §6.6.12.3  Interpreting Bytevector Contents as Integers
-    pub fn u8Ref (a: ByteVector, index: Number) Number
+    pub fn u8Ref (a: ByteVector, index: Integer) Integer
         { return .{ .s = guile.scm_bytevector_u8_ref (a.s, index.s) }; }
-    pub fn s8Ref (a: ByteVector, index: Number) Number
+    pub fn s8Ref (a: ByteVector, index: Integer) Integer
         { return .{ .s = guile.scm_bytevector_s8_ref (a.s, index.s) }; }
     
-    pub fn u16Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn u16Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_u16_ref(a.s, index.s, endianness.s) }; }
-    pub fn s16Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn s16Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_s16_ref(a.s, index.s, endianness.s) }; }
     
-    pub fn u32Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn u32Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_u32_ref(a.s, index.s, endianness.s) }; }
-    pub fn s32Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn s32Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_s32_ref(a.s, index.s, endianness.s) }; }
     
-    pub fn u64Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn u64Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_u64_ref(a.s, index.s, endianness.s) }; }
-    pub fn s64Ref(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn s64Ref(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_s64_ref(a.s, index.s, endianness.s) }; }
 
 
-    pub fn u8SetX(a: ByteVector, index:Number, value: Number) void
+    pub fn u8SetX(a: ByteVector, index:Integer, value: Integer) void
         { _ = guile.scm_bytevector_u8_set_x(a.s, index.s, value.s); }
-    pub fn s8SetX(a: ByteVector, index:Number, value: Number) void
+    pub fn s8SetX(a: ByteVector, index:Integer, value: Integer) void
         { _ = guile.scm_bytevector_s8_set_x(a.s, index.s, value.s); }
 
-    pub fn u16SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn u16SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_u16_set_x(a.s, index.s, value.s, endianness.s); }
-    pub fn s16SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn s16SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_s16_set_x(a.s, index.s, value.s, endianness.s); }
 
-    pub fn u32SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn u32SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_u32_set_x(a.s, index.s, value.s, endianness.s); }
-    pub fn s32SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn s32SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_s32_set_x(a.s, index.s, value.s, endianness.s); }
 
-    pub fn u64SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn u64SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_u64_set_x(a.s, index.s, value.s, endianness.s); }
-    pub fn s64SetX(a: ByteVector, index:Number, value: Number, endianness: Symbol) void
+    pub fn s64SetX(a: ByteVector, index:Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_s64_set_x(a.s, index.s, value.s, endianness.s); }
 
     //todo: Native?
 
-    // §6.6.12.5 Interpreting Bytevector Contents as Floating Point Numbers
-    pub fn ieeeSingleRef(a: ByteVector, index: Number, endianness: Symbol) Number
+    // §6.6.12.5 Interpreting Bytevector Contents as Floating Point Integers
+    pub fn ieeeSingleRef(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_ieee_single_ref(a.s, index.s, endianness.s) }; }
-    pub fn ieeeDoubleRef(a: ByteVector, index: Number, endianness: Symbol) Number
+    pub fn ieeeDoubleRef(a: ByteVector, index: Integer, endianness: Symbol) Integer
         { return .{ .s = guile.scm_bytevector_ieee_double_ref(a.s, index.s, endianness.s) }; }
 
-    pub fn ieeeSingleSetX(a: ByteVector, index: Number, value: Number, endianness: Symbol) void
+    pub fn ieeeSingleSetX(a: ByteVector, index: Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_ieee_single_set_x(a.s, index.s, value.s, endianness.s); }
-    pub fn ieeeDoubleSetX(a: ByteVector, index: Number, value: Number, endianness: Symbol) void
+    pub fn ieeeDoubleSetX(a: ByteVector, index: Integer, value: Integer, endianness: Symbol) void
         { _ = guile.scm_bytevector_ieee_double_set_x(a.s, index.s, value.s, endianness.s); }
 
     //todo: Native?

@@ -7,8 +7,8 @@ const guile = gzzg.guile;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
+const Integer = gzzg.Integer;
 const List    = gzzg.List;
-const Number  = gzzg.Number;
 
 //                                         --------------
 //                                         Vector §6.6.10
@@ -27,16 +27,16 @@ pub const Vector = struct {
     pub fn fromList(a: List) Vector { return .{ .s = guile.scm_vector_to_list(a.s) }; }
     //todo: vector->list
 
-    pub fn init (length: Number, fill: ?Any) Vector { return .{ .s = guile.scm_make_vector  (length.s, gzzg.orUndefined(fill)) }; }
+    pub fn init (length: Integer, fill: ?Any) Vector { return .{ .s = guile.scm_make_vector  (length.s, gzzg.orUndefined(fill)) }; }
     pub fn initZ(length: usize,  fill: ?Any) Vector { return .{ .s = guile.scm_c_make_vector(length, gzzg.orUndefined(fill)) }; }
 
-    pub fn len (a: Vector) Number { return .{ .s = guile.scm_vector_length(a.s) }; }
+    pub fn len (a: Vector) Integer { return .{ .s = guile.scm_vector_length(a.s) }; }
     pub fn lenZ(a: Vector) usize  { return guile.SCM_SIMPLE_VECTOR_LENGTH(a.s); }
 
-    pub fn ref(a: Vector, idx: Number) Any { return .{ .s = guile.scm_vector_ref(a.s, idx.s) }; }
+    pub fn ref(a: Vector, idx: Integer) Any { return .{ .s = guile.scm_vector_ref(a.s, idx.s) }; }
     pub fn refZ(a: Vector, idx: usize)  Any { return .{ .s = guile.SCM_SIMPLE_VECTOR_REF(a.s, idx) }; }
 
-    pub fn setX (a: Vector, idx: Number, obj: Any) void { _ = guile.scm_vector_set_x(a.s, idx.s, obj.s); }
+    pub fn setX (a: Vector, idx: Integer, obj: Any) void { _ = guile.scm_vector_set_x(a.s, idx.s, obj.s); }
     pub fn setXZ(a: Vector, idx: usize,  obj: Any) void { _ = guile.scm_c_vector_set_x(a.s, idx, obj.s); }
 
     //vector-fill

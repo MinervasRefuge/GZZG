@@ -10,9 +10,9 @@ const expect             = std.testing.expect;
 const expectEqualStrings = std.testing.expectEqualStrings;
 const expectEqual        = std.testing.expectEqual;
 
-const Char   = gzzg.Character;
-const Number = gzzg.Number;
-const String = gzzg.String;
+const Char    = gzzg.Character;
+const Integer = gzzg.Integer;
+const String  = gzzg.String;
 
 test "guile string from/to narrow" {
     gzzg.initThreadForGuile();
@@ -114,7 +114,7 @@ test "guile string ref" {
     const gstr = String.fromUTF8CStr(str);
 
     try expect(str.len == gstr.lenZ());
-    try gexpect(Number.from(str.len).equal(gstr.len()));
+    try gexpect(Integer.from(str.len).equal(gstr.len()));
 
     try gexpect(gstr.refZ( 0).equal(Char.fromZ('H')));
     try gexpect(gstr.refZ( 1).equal(Char.fromZ('e')));
@@ -129,9 +129,9 @@ test "guile string ref" {
     try gexpect(gstr.refZ(10).equal(Char.fromZ('d')));
     try gexpect(gstr.refZ(11).equal(Char.fromZ('!')));
 
-    try gexpect(gstr.ref(Number.from(4)).equal(Char.fromZ('o')));
-    try gexpect(gstr.ref(Number.from(5)).equal(Char.fromZ(' ')));
-    try gexpect(gstr.ref(Number.from(6)).equal(Char.fromZ('W')));
+    try gexpect(gstr.ref(Integer.from(4)).equal(Char.fromZ('o')));
+    try gexpect(gstr.ref(Integer.from(5)).equal(Char.fromZ(' ')));
+    try gexpect(gstr.ref(Integer.from(6)).equal(Char.fromZ('W')));
 }
 
 test "guile string iter" {

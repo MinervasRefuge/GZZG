@@ -11,8 +11,9 @@ const orUndefined = gzzg.orUndefined;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
-const Number  = gzzg.Number;
+const Integer = gzzg.Integer;
 const ListOf  = gzzg.ListOf;
+const Number  = gzzg.Number;
 
 //                                        ----------------
 //                                        Character §6.6.3
@@ -30,7 +31,7 @@ pub const Character = struct {
     pub fn toWideZ(a: Character) u21 { return @truncate(a.toNumber().toZ(u32)); } // Macro broken guile.SCM_CHAR(a.s);
     pub fn toZ(a: Character) !U8CharSlice { return .toUTF8(a.toWideZ()); }
 
-    pub fn toNumber(a: Character) Number { return .{ .s = guile.scm_char_to_integer(a.s) }; }
+    pub fn toNumber(a: Character) Integer { return .{ .s = guile.scm_char_to_integer(a.s) }; }
     
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_char_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); } // where's the companion fn?
@@ -119,8 +120,8 @@ pub const String = struct {
     pub fn fromUTF8CStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
     pub fn fromListOfCharacters(a: ListOf(Character))        String { return .{ .s = guile.scm_string(a.s) }; }
     pub fn fromReverseListOfCharacters(a: ListOf(Character)) String { return .{ .s = guile.scm_reverse_list_to_string(a.s) }; }
-    pub fn init(k: Number, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
-    pub fn initZ(k: usize, chr: ?Character) String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
+    pub fn init (k: Integer, chr: ?Character) String { return .{ .s = guile.scm_make_string(k.s, gzzg.orUndefined(chr)) }; }
+    pub fn initZ(k: usize, chr: ?Character)   String { return .{ .s = guile.scm_c_make_string(k.s, gzzg.orUndefined(chr)) }; }
 
     pub fn toUTF8(a: String, allocator: std.mem.Allocator) ![:0]u8 {
         if (bopts.enable_direct_string_access) {
@@ -175,14 +176,14 @@ pub const String = struct {
     pub fn toSymbol(a: String) Symbol { return .{ .s = guile.scm_string_to_symbol(a.s) }; }
     pub fn toSymbolCI(a: String) Symbol { return .{ .s = guile.scm_string_ci_to_symbol(a.s) }; }
 
-    pub fn toNumber(a: String, radix: ?Number) ?Number {
+    pub fn toNumber(a: String, radix: ?Integer) ?Number {
         const out = guile.scm_string_to_number(a.s, gzzg.orUndefined(radix));
 
         return if (Boolean.isZ(out)) null else .{ .s = out };
     }
 
     pub fn toCharacters(a: String) ListOf(Character) { return .{ .s = guile.scm_string_to_list(a.s) }; }
-    pub fn toCharactersSubString (a: String, start: Number, end: ?Number) ListOf(Character)
+    pub fn toCharactersSubString (a: String, start: Integer, end: ?Integer) ListOf(Character)
         { return .{ .s = guile.scm_substring_to_list(a.s, start.s, orUndefined(end)) }; }
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_string_p(a) }; }
@@ -194,26 +195,26 @@ pub const String = struct {
 
 
     // §6.6.5.5 String Selection
-    pub fn len (a: String) Number { return .{ .s = guile.scm_string_length(a.s) }; }
+    pub fn len (a: String) Integer { return .{ .s = guile.scm_string_length(a.s) }; }
     pub fn lenZ(a: String) usize  { return guile.scm_c_string_length(a.s); }
 
-    pub fn ref (a: String, k: Number) Character { return .{ .s = guile.scm_string_ref(a.s, k.s) }; }
+    pub fn ref (a: String, k: Integer) Character { return .{ .s = guile.scm_string_ref(a.s, k.s) }; }
     pub fn refZ(a: String, k: usize)  Character { return  .{ .s = guile.scm_c_string_ref(a.s, k) }; }
     //string-refz
     //string-copy
-    pub fn substring(a: String, start: Number, end:?Number) String {
+    pub fn substring(a: String, start: Integer, end: ?Integer) String {
         return .{ .s = guile.scm_substring(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringShared(a: String, start: Number, end:?Number) String {
+    pub fn substringShared(a: String, start: Integer, end: ?Integer) String {
         return .{ .s = guile.scm_substring_shared(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringCopy(a: String, start: Number, end:?Number) String {
+    pub fn substringCopy(a: String, start: Integer, end: ?Integer) String {
         return .{ .s = guile.scm_substring_copy(a.s, start.s, orUndefined(end)) };
     }
 
-    pub fn substringReadOnly(a: String, start: Number, end:?Number) String {
+    pub fn substringReadOnly(a: String, start: Integer, end: ?Integer) String {
         return .{ .s = guile.scm_substring_read_only(a.s, start.s, orUndefined(end)) };
     }
 
@@ -252,10 +253,10 @@ pub const String = struct {
     }
     //string-tabulate
 
-    pub fn take(a: String, n: Number) String { return .{ .s = guile.scm_string_take(a.s, n.s) }; }
-    pub fn drop(a: String, n: Number) String { return .{ .s = guile.scm_string_drop(a.s, n.s) }; }
-    pub fn takeRight(a: String, n: Number) String { return .{ .s = guile.scm_string_take_right(a.s, n.s) }; }
-    pub fn dropRight(a: String, n: Number) String { return .{ .s = guile.scm_string_drop_right(a.s, n.s) }; }
+    pub fn take(a: String, n: Integer) String { return .{ .s = guile.scm_string_take(a.s, n.s) }; }
+    pub fn drop(a: String, n: Integer) String { return .{ .s = guile.scm_string_drop(a.s, n.s) }; }
+    pub fn takeRight(a: String, n: Integer) String { return .{ .s = guile.scm_string_take_right(a.s, n.s) }; }
+    pub fn dropRight(a: String, n: Integer) String { return .{ .s = guile.scm_string_drop_right(a.s, n.s) }; }
 
     //string-pad
     //stringpad-right
@@ -337,7 +338,7 @@ pub const Symbol = struct {
 
     pub fn isInterned(a: Symbol) Boolean { return .{ .s = guile.scm_symbol_interned_p(a.s) }; }
 
-    pub fn hash(a: Symbol) Number { return .{ .s = guile.scm_symbol_hash(a.s) }; }
+    pub fn hash(a: Symbol) Integer { return .{ .s = guile.scm_symbol_hash(a.s) }; }
     pub fn lenZ(a: Symbol) usize { return guile.scm_c_symbol_length(a.s); }
 
     pub fn gensym(prefix: ?String) Symbol { return .{ .s = guile.scm_gensym(orUndefined(prefix)) }; }

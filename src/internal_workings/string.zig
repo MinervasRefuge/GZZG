@@ -360,7 +360,7 @@ test "Static String: substring" {
     //const expect    = std.testing.expect;
     const expectEql = std.testing.expectEqual;
     const expectStr = std.testing.expectEqualStrings;
-    const Num = gzzg.Number;
+    const Int = gzzg.Integer;
     gzzg.initThreadForGuile();
 
     const str = "Nothing useless can be truly beautiful.";
@@ -371,7 +371,7 @@ test "Static String: substring" {
     try expectEql(gstr.lenZ(), str.len);
 
     { // snip "truly"
-        const gss = gstr.substring(Num.from(23), Num.from(28));
+        const gss = gstr.substring(Int.from(23), Int.from(28));
 
         // Should still share the same Buffer
         try expectSamePtr(&buf, Layout.from(gss).buffer.strbuf);
@@ -387,7 +387,7 @@ test "Static String: substring" {
 
 test "Runtime String" {
     const expectStr = std.testing.expectEqualStrings;
-    const Num = gzzg.Number;
+    const Int = gzzg.Integer;
     var dalloc = std.heap.DebugAllocator(.{}){};
     const alloc = dalloc.allocator();
     defer _ = dalloc.deinit();
@@ -406,7 +406,7 @@ test "Runtime String" {
     lay[0] = .init(buf, .just_readable);
 
     { // snip "Colour"
-        const gss = lay[0].ref().substring(Num.from(11), null);
+        const gss = lay[0].ref().substring(Int.from(11), null);
 
         // Should still share the same Buffer
         try expectSamePtr(buf, Layout.from(gss).buffer.strbuf);
