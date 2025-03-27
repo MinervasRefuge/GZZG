@@ -35,6 +35,11 @@ fn isString(comptime v: anytype) bool {
     return @TypeOf(str, v) == []const u8;
 }
 
+fn isStringC(comptime v: anytype) bool {
+    const str: [*c]const u8 = "";
+    return @TypeOf(str, v) == [*c]const u8;
+}
+
 fn gzzgType(comptime GT: type, comptime note: []const u8) void {
     const tname = @typeName(GT);
     switch (@typeInfo(GT)) {
@@ -155,4 +160,76 @@ pub fn GZZGFnC(comptime FnCT: type, comptime Output: type) type {
     }
 
     return Output;
+}
+
+fn checkFnSignature(comptime FnToCheck: type, comptime Signature: type,  comptime note:[]const u8) void {
+    const checki = @typeInfo(FnToCheck).@"fn";
+    const signaturei = @typeInfo(Signature).@"fn";
+    
+    if (checki.params.len != signaturei.params.len)
+        @compileError(note ++ "Wrong number of args to fn");
+
+    if (!std.meta.eql(checki.calling_convention, signaturei.calling_convention))
+        @compileError(note ++ "Calling Convention wrong, expected: " ++ @tagName(signaturei.calling_convention));
+    
+    for (checki.params, signaturei.params, 0..) |c, s, i| {
+        if (c.is_generic or c.type != s.type)
+            @compileError(print(note ++ "Wrong type in fn on index: {d} found: {s}, expect: {s}",
+                                .{i, @typeName(c.type orelse {}), @typeName(s.type.?)}));
+    }
+}
+
+pub fn GZZGCustomPort(comptime CustomPortT: type, comptime Output: type) type {
+    const signatures = @import("port.zig").CustomPortSignatures(CustomPortT);
+    const tname = @typeName(CustomPortT);
+
+    // check required fields
+    if (!@hasDecl(CustomPortT, "name"))
+        @compileError("Missing declaration 'name' on: " ++ tname);
+
+    if (!@hasDecl(CustomPortT, "read"))
+        @compileError("Missing declaration 'read' on: " ++ tname);
+
+    if (!@hasDecl(CustomPortT, "write"))
+        @compileError("Missing declaration 'write' on: " ++ tname);
+
+    // check types on required fields
+    if (!isStringC(CustomPortT.name))
+        @compileError(tname ++ ".name not coercible [*c]string");
+    
+    checkFnSignature(@TypeOf(CustomPortT.read) , signatures.ReadFN , "On " ++ tname ++ " read fn: ");
+    checkFnSignature(@TypeOf(CustomPortT.write), signatures.WriteFN, "On " ++ tname ++ " write fn: " );
+
+    // check optional fields
+    inline for(signatures.optional_outlines) |outline| {
+        if (@hasDecl(CustomPortT, outline[0]))
+            checkFnSignature(
+                @TypeOf(@field(CustomPortT, outline[0])),
+                outline[2],
+                "On " ++ tname ++ " " ++ outline[0]  ++ "fn: ");
+    }
+    
+    if (@hasDecl(CustomPortT, "call_close_on_gc") and @TypeOf(CustomPortT.call_close_on_gc) != bool)
+        @compileError("Expected `call_close_on_gc` to be bool");
+    
+    return Output;
+}
+
+// Function Type to Wrap
+pub fn WrapAsCFn(FTW: type) type {
+    switch (@typeInfo(FTW)) {
+        .pointer => |p| return WrapAsCFn(p.child),
+        .@"fn" => |ftwi| {
+            return @Type(.{
+                .@"fn" = .{
+                    .calling_convention = .c,
+                    .params = ftwi.params,
+                    .is_generic = ftwi.is_generic,
+                    .is_var_args = ftwi.is_var_args,
+                    .return_type = ftwi.return_type
+                }
+            });
+        },
+        else => @compileError("Not a function: " ++ @typeName(FTW)),
+    }
 }

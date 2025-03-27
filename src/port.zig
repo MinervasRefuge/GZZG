@@ -6,6 +6,9 @@ const gzzg  = @import("gzzg.zig");
 const bopts = @import("build_options");
 const guile = gzzg.guile;
 
+const GZZGCustomPort = gzzg.contracts.GZZGCustomPort;
+const WrapAsCFn      = gzzg.contracts.WrapAsCFn;
+
 const orUndefined = gzzg.orUndefined;
 
 const Any        = gzzg.Any;
@@ -230,4 +233,170 @@ pub const Port = struct {
 };
 
 
-// * TODO 6.12.13 Implementing New Port Types in C                   :undecided:
+// * TODO 6.12.13 Implementing New Port Types in C                  :incomplete:
+
+/// Minimum struct must be...
+/// #+BEGIN_SRC zig
+///   struct {
+///       const RPort = RuntimeCustomPort(@This());
+///       pub const name = "";
+/// 
+///       fn read (port: RPort, dst: ByteVector, start: usize, count: usize) callconv(.c) usize;
+///       fn write(port: RPort, src: ByteVector, start: usize, count: usize) callconv(.c) usize;
+///   }
+/// #+END_SRC
+/// 
+/// Additional members may be...
+/// #+BEGIN_SRC zig
+///   pub fn ReadWaitFd   (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
+///   pub fn WriteWaitFd  (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
+///   pub fn Print        (port: RPort, dest_port: Port, scm_print_state:[*c]guile.scm_print_state) callconv(.c) c_int;
+///   pub fn Close        (port: RPort) callconv(.c) void;
+///   pub fn Seek         (port: RPort, offset: guile.scm_t_off, whence: c_int) callconv(.c) guile.scm_t_off; // returns the new position in stream
+///   pub fn Truncate     (port: RPort, asdf: guile.scm_t_off) callconv(.c) void;
+///   pub fn RandomAccessP(port: RPort) callconv(.c) c_int;
+///   pub fn NaturalBufferSizes(port: RPort, read_buffer_size: *usize, write_buffer_size: *usize) callconv(.c) void;
+///   pub const call_close_on_gc:bool;
+/// #+END_SRC
+/// 
+pub fn MakeCustomPort(comptime CPT: type) GZZGCustomPort(CPT, type) {
+    return struct {
+        port_type: *guile.scm_t_port_type,
+        
+        // fn functionInfo(FnT: type) std.builtin.Type.Fn {
+        //     switch (@typeInfo(FnT)) {
+        //         .pointer => |p| switch(@typeInfo(p.child)) {
+        //             .@"fn" => |fni| return fni,
+        //             else => {},
+        //         },
+        //         .@"fn" => |fni| return fni,
+        //         else => {}
+        //     }
+        //     
+        //     @compileError("Not a fn type: " ++ @typeName(FnT));
+        // }
+        // 
+        // fn wrapRead() *const WrapAsCFn(signatures.ReadFn) {
+        //     const fti = functionInfo(CPT.read);
+        //     
+        //     if (comptime std.eql(fti.calling_convention, .c))
+        //         return CPT.read;
+        //     
+        //     return struct {
+        //         fn wrapRead(port: RuntimeCustomPort(CPT), dst: ByteVector, start: usize, count: usize) callconv(.c) usize {
+        //             return @call(.auto, CPT.read, .{port, dst, start, count}); // .always_inline ?
+        //         }
+        //     }.wrapRead;
+        // }
+        
+        pub fn init() @This() {
+            const signatures = CustomPortSignatures(CPT);
+            const port_type = guile.scm_make_port_type(CPT.name, @ptrCast(CPT.read), @ptrCast(CPT.write)).?;
+
+            inline for(signatures.optional_outlines) |outline| {
+                if (@hasDecl(CPT, outline[0]))
+                    outline[1](port_type, @ptrCast(@field(CPT, outline[0])));
+            }
+
+            if (@hasDecl(CPT, "call_close_on_gc"))
+                guile.scm_set_port_needs_close_on_gc(port_type, if (CPT.call_close_on_gc) 1 else 0); // non-zero as true
+            
+            return .{ .port_type = port_type };
+        }
+
+        pub fn create(a: @This()) Port {
+            //scm_c_make_port (scm_t_port_type *type, unsigned long mode_bits, scm_t_bits stream)
+            //scm_c_make_port_with_encoding (scm_t_port_type *type,unsigned long mode_bits, SCM encoding, SCM conversion_strategy, scm_t_bits stream)
+            _ = a;
+            @panic("Unimplemented");
+        }
+
+        comptime {
+            if (@sizeOf(RuntimeCustomPort(CPT)) != @sizeOf(guile.SCM))
+                @compileError("Bad Size");
+            
+            if (@sizeOf(ByteVector) != @sizeOf(guile.SCM))
+                @compileError("Bad Size");
+
+            if (@sizeOf(Port) != @sizeOf(guile.SCM))
+                @compileError("Bad Size");
+        }
+    };
+}
+
+pub fn CustomPortSignatures(comptime CPT: type) type {
+    return struct {
+        pub const RPort = RuntimeCustomPort(CPT);
+
+        // todo: quadruple check that the second arg is a ByteVector
+        pub const ReadFn               = fn (RPort, ByteVector, usize, usize)        callconv(.c) usize;
+        pub const WriteFn              = fn (RPort, ByteVector, usize, usize)        callconv(.c) usize;
+        pub const ReadWaitFdFn         = fn (RPort)                                  callconv(.c) c_int; 
+        pub const WriteWaitFdFn        = fn (RPort)                                  callconv(.c) c_int;
+        pub const PrintFn              = fn (RPort, Port, [*c]guile.scm_print_state) callconv(.c) c_int; 
+        pub const CloseFn              = fn (RPort)                                  callconv(.c) void; 
+        pub const SeekFn               = fn (RPort, guile.scm_t_off, c_int)          callconv(.c) guile.scm_t_off; 
+        pub const TruncateFn           = fn (RPort, guile.scm_t_off)                 callconv(.c) void; 
+        pub const RandomAccessPFn      = fn (RPort)                                  callconv(.c) c_int; 
+        pub const NaturalBufferSizesFn = fn (RPort, *usize, *usize)                  callconv(.c) void;
+
+        //guile.scm_t_offset is a i64
+
+        pub const optional_outlines = .{
+            .{ "readWaitFd"        , guile.scm_set_port_read_wait_fd            , ReadWaitFdFn },
+            .{ "writeWaitFd"       , guile.scm_set_port_write_wait_fd           , WriteWaitFdFn },
+            .{ "print"             , guile.scm_set_port_print                   , PrintFn },
+            .{ "close"             , guile.scm_set_port_close                   , CloseFn },
+            .{ "seek"              , guile.scm_set_port_seek                    , SeekFn },
+            .{ "truncate"          , guile.scm_set_port_truncate                , TruncateFn },
+            .{ "randomAccessP"     , guile.scm_set_port_random_access_p         , RandomAccessPFn },
+            .{ "naturalBufferSizes", guile.scm_set_port_get_natural_buffer_sizes, NaturalBufferSizesFn },
+        };
+    };
+}
+
+pub fn RuntimeCustomPort(comptime CPT: type) type {
+    if (@sizeOf(CPT) == 0) { // todo: this or conditional @compilerError on ~get~
+        return Port;
+    }
+    
+    return struct {
+        s: guile.SCM,
+        
+        pub inline fn lowerPort(a: @This()) Port {
+            return .{ .s = a.s };
+        }
+        
+        pub fn get(self: @This()) *CPT {
+            _ = self;
+            @panic("unimplemented");
+        }
+    };
+}
+
+// - SCM_STREAM :: ~#define SCM_STREAM(port) (SCM_CELL_WORD_1 (port))~
+// 
+// 
+// - ~stream~ is private data associated with the port, which can pe retreived by ~SCM_STREAM~ macro.
+// - ~mode_bits~ from =libguile/ports.h=
+//   | SCM_RDNG    | is readable      |
+//   | SCM_WRTNG   | is writable      |
+//   | SCM_BUF0    | is unbuffered    |
+//   | SCM_BUFLINE | is line buffered |
+//   |-------------+------------------|
+//   | SCM_OPN     | is port open     |
+// 
+//   ~SCM_OPN~ might not be used as a flag here?
+// 
+// #+BEGIN_SRC c
+//   stream = scm_gc_typed_calloc (struct string_port);
+//   stream->bytevector = buf;
+//   stream->pos = byte_pos;
+//   stream->len = len;
+// 
+//   return
+//     scm_c_make_port_with_encoding (scm_string_port_type, modes, sym_UTF_8,
+//                                    scm_i_default_port_conversion_strategy (),
+//                                    (scm_t_bits) stream);
+// #+END_SRC
+
