@@ -39,10 +39,10 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 pub const Port = @import("port.zig").Port;
 
 //
-
-pub const Smob   = @import("smob.zig").Smob;
-pub const Thread = @import("thread.zig").Thread;
-pub const Hook   = @import("hook.zig").Hook;
+// Not ready for use.
+const Smob   = @import("smob.zig").Smob;
+const Thread = @import("thread.zig").Thread;
+const Hook   = @import("hook.zig").Hook;
 
 //
 
@@ -54,8 +54,9 @@ pub const ForeignType = @import("foreign_object.zig").ForeignType;
 
 //
 
-pub const Stack = @import("vm.zig").Stack;
-pub const Frame = @import("vm.zig").Frame;
+// Not ready for use
+const Stack = @import("vm.zig").Stack;
+const Frame = @import("vm.zig").Frame;
 
 
 //                                       ------------------
