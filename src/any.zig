@@ -25,6 +25,7 @@ pub const Any = extern struct {
 
     pub inline fn lowerZ(a: Any) Any { return a; }
 
+    // todo: optional or error?
     pub fn raiseZ(a: Any, comptime SCMType: type) GZZGType(SCMType, ?SCMType) {
         if (!@hasDecl(SCMType, "isZ"))
             @compileError("Missing `isZ` for type narrowing (`raise`) on " ++ @typeName(SCMType));

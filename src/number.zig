@@ -460,6 +460,8 @@ pub const Number = struct {
     pub const RandomState = struct {
         s: guile.SCM,
 
+        pub const guile_name = "random-state";
+
         pub fn fromPlatform() RandomState { return .{ .s = guile.scm_random_state_from_platform() }; }
 
         // (set! *random-state* (random-state-from-platform)) ?

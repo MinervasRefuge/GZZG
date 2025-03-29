@@ -23,40 +23,40 @@ pub fn eval(str: anytype, module: ?Module) Any {
     // equv to the following
 
     //todo fix
-    const gs = init: {
-        switch (@typeInfo(@TypeOf(str))) {
-            .Array => |a| {
-                if (a.child != u8) @compileError("Array should have a sub type of u8");
-                break :init String.fromUTF8(&str);
-            },
-            .Pointer => |p| {
-                if (p.child != u8) @compileError("Slice should have a sub type of u8: " ++ @typeName(p.child));
-                switch (p.size) {
-                    .One => @compileError("Bad Pointer type"),
-                    .Many => {
-                        if (p.sentinel) |s| {
-                            if (@as(*u8, @ptrCast(s)) != 0)
-                                @compileError("Sentinel value must be 0");
-                            break :init String.fromUTF8CStr(str);
-                        } else {
-                            @compileError("Many ptr must have sentinel of :0");
-                        }
-                    },
-                    .Slice => break :init String.fromUTF8(str),
-                    .C => break :init String.fromUTF8CStr(str),
-                }
-            },
-            .Struct => {
-                if (@TypeOf(str) != String)
-                    @compileError("Struct should have been a `String`");
+    // const gs = init: {
+    //     switch (@typeInfo(@TypeOf(str))) {
+    //         .Array => |a| {
+    //             if (a.child != u8) @compileError("Array should have a sub type of u8");
+    //             break :init String.fromUTF8(&str);
+    //         },
+    //         .Pointer => |p| {
+    //             if (p.child != u8) @compileError("Slice should have a sub type of u8: " ++ @typeName(p.child));
+    //             switch (p.size) {
+    //                 .One => @compileError("Bad Pointer type"),
+    //                 .Many => {
+    //                     if (p.sentinel) |s| {
+    //                         if (@as(*u8, @ptrCast(s)) != 0)
+    //                             @compileError("Sentinel value must be 0");
+    //                         break :init String.fromUTF8CStr(str);
+    //                     } else {
+    //                         @compileError("Many ptr must have sentinel of :0");
+    //                     }
+    //                 },
+    //                 .Slice => break :init String.fromUTF8(str),
+    //                 .C => break :init String.fromUTF8CStr(str),
+    //             }
+    //         },
+    //         .Struct => {
+    //             if (@TypeOf(str) != String)
+    //                 @compileError("Struct should have been a `String`");
+    // 
+    //             break :init str;
+    //         },
+    //         else => @compileError("Not a string: " ++ @typeName(@TypeOf(str))),
+    //     }
+    // };
 
-                break :init str;
-            },
-            else => @compileError("Not a string: " ++ @typeName(@TypeOf(str))),
-        }
-    };
-
-    return .{ .s = guile.scm_eval_string_in_module(gs.s, orUndefined(module)) };
+    return .{ .s = guile.scm_eval_string_in_module(String.fromUTF8(str).s, orUndefined(module)) };
 }
 
 //                                      --------------------

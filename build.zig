@@ -115,6 +115,15 @@ fn buildExamples(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.M
                 .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
             }),
         }),
+        b.addExecutable(.{
+            .name = "example-monte-carlo-pi",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/monte_carlo_pi.zig"),
+                .target = target,
+                .optimize = optimise,
+                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+            }),
+        }),
     };
 
     for (examples) |example| {
