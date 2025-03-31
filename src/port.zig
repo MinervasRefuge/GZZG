@@ -177,22 +177,42 @@ pub const Port = struct {
         current = S.CUR,
         end     = S.END,
 
-        // Integer
-        pub fn toInteger(a: @This()) Integer {
+        pub fn toInteger(a: @This()) Integer { // todo: make cheaper?
             return .from(@intFromEnum(a));
         }
     };
 
-    //todo Integer
     pub fn seek(a: Port, offset: Integer, whence: Whence) Integer { return .{ .s = guile.scm_seek(a.s, offset.s, whence.toInteger()) }; }
     pub fn ftell(a: Port) Integer { return .{ .s = guile.scm_ftell(a.s) }; }
     pub fn truncateFile(a: Port, length: ?Integer) void { guile.scm_truncate_file(a.s, orUndefined(length)); }
 
     // * DONE §6.12.12 Using Ports from C                  :complete:allFunctions:
-    // 
+    //
 
-    pub fn readZ (a: Port, buffer: []u8)       usize { return guile.scm_c_read (a.s, buffer.ptr, buffer.len); }
-    pub fn writeZ(a: Port, buffer: []const u8) void  {        guile.scm_c_write(a.s, buffer.ptr, buffer.len); }
+    pub const ReadError  = error{Closed, IsntReadable};
+    pub const WriteError = error{Closed, IsntWritable};
+
+    pub const Reader = std.io.GenericReader(Port, ReadError , read);
+    pub const Writer = std.io.GenericWriter(Port, WriteError, write);
+
+    pub fn read(a: Port, buffer: []u8) ReadError!usize {
+        if (a.isClosed().toZ()) return error.Closed;
+        if (!a.isInput().toZ()) return error.IsntReadable;
+
+        return guile.scm_c_read(a.s, buffer.ptr, buffer.len);
+    }
+    
+    pub fn write(a: Port, bytes: []const u8) WriteError!usize {
+        if (a.isClosed().toZ())  return error.Closed;
+        if (!a.isOutput().toZ()) return error.IsntWritable;
+
+        guile.scm_c_write(a.s, bytes.ptr, bytes.len);
+        
+        return bytes.len;
+    }
+
+    pub fn reader(a: Port) Reader { return .{ .context = a }; }
+    pub fn writer(a: Port) Writer { return .{ .context = a }; }
 
     pub fn readBytesZ(a: Port, bv: ByteVector, start: usize, count: usize) usize
         { return guile.scm_c_read_bytes(a.s, bv.s, start, count); }
@@ -211,7 +231,33 @@ pub const Port = struct {
     // Extra?
 
     pub fn flush(a: Port) void { guile.scm_flush(a.s); }
+    
+    // * DONE Zig IO - extended                                           :complete:
+    //
+    
+    pub const SeekError       = error{};
+    pub const GetSeekPosError = error{};
+    
+    pub const SeekableStream = std.io.SeekableStream(
+        Port,
+        SeekError, GetSeekPosError,
+        seekTo   , seekBy,
+        getPos   , getEndPos
+    );
 
+    pub fn seekTo(a: Port, pos: u64) SeekError!void { _ = a.seek(.from(pos), .set); }
+    pub fn seekBy(a: Port, amt: i64) SeekError!void { _ = a.seek(.from(amt), .current); }
+    pub fn getPos(a: Port) GetSeekPosError!u64 { return a.ftell().toZ(u64); }
+    pub fn getEndPos(a: Port) GetSeekPosError!u64 {
+        const cur = a.ftell();
+        const end = a.seek(.from(0), .end);
+        _ = a.seek(cur, .set);
+
+        return end.toZ(u64);
+    }
+
+    pub fn seekableStream(a: Port) SeekableStream { return .{ .context = a }; }
+    
     //
 
     pub const current          = _current;
@@ -450,3 +496,26 @@ pub fn RuntimeCustomPort(comptime CPT: type) type {
 //                                    (scm_t_bits) stream);
 // #+END_SRC
 
+
+//
+//
+//
+
+test "guile string port with zig writer" {
+    var buffer: [24]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&buffer);
+    gzzg.initThreadForGuile();
+
+    const str = "A Baker's Dozen is 13.\n";
+
+    const dozen    = gzzg.Number.from(13);
+    const str_port = Port.string_port.openOutput();
+    const writer   = str_port.writer();
+
+    try std.fmt.format(writer, "A Baker's Dozen is {d}.\n", .{dozen.toZ(usize)});
+
+    const out = try Port.string_port.getOutputString(str_port).toUTF8(fba.allocator());
+    _ = str_port.close();
+
+    try std.testing.expectEqualStrings(str, out);
+}
