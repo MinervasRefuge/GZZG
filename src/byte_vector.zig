@@ -13,7 +13,7 @@ const Symbol  = gzzg.Symbol;
 //                                       Byte Vector §6.6.12
 //                                       -------------------
 
-pub const ByteVector = struct {
+pub const ByteVector = extern struct {
     s: guile.SCM,
 
     pub const guile_name = "byte-vector";
@@ -72,10 +72,20 @@ pub const ByteVector = struct {
         { _ = guile.scm_bytevector_copy_x(src.s, src_start.s, dest.s, dest_start.s, length.s); }
 
     pub fn contents(a: ByteVector, comptime C: type) []C {
+        // todo: gate behind options
+
+        const iw = gzzg.internal_workings;
+        const layout: *align(8) iw.byte_vector.Layout = @alignCast(@ptrCast(a.s));
+        
         switch (C) {
-            u8, i8 => .{ .ptr = @as([*c]C, guile.SCM_BYTEVECTOR_CONTENTS(a.s)), .len = lenZ(a.s)},
-            else => @compileError("Expected u8 or i8 for bytevector contents type")
+            u8 => return layout.getContentsU8(),
+            else => @compileError("Expected u8 for bytevector contents type")
         }
+        
+        //switch (C) {
+        //    u8, i8 => .{ .ptr = @as([*c]C, guile.SCM_BYTEVECTOR_CONTENTS(a.s)), .len = lenZ(a.s)},
+        //    else => @compileError("Expected u8 or i8 for bytevector contents type")
+        //}
     }
 
     // §6.6.12.3  Interpreting Bytevector Contents as Integers

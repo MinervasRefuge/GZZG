@@ -1,10 +1,11 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
 
-const std   = @import("std");
-const gzzg  = @import("gzzg.zig");
-const bopts = @import("build_options");
-const guile = gzzg.guile;
+const std     = @import("std");
+const gzzg    = @import("gzzg.zig");
+const bopts   = @import("build_options");
+const guile   = gzzg.guile;
+const Padding = gzzg.internal_workings.Padding;
 
 const GZZGCustomPort = gzzg.contracts.GZZGCustomPort;
 const WrapAsCFn      = gzzg.contracts.WrapAsCFn;
@@ -25,7 +26,7 @@ const ThunkOf    = gzzg.ThunkOf;
 //                                          Port §6.12.1
 //                                          ------------
 
-pub const Port = struct {
+pub const Port = extern struct {
     s: guile.SCM,
 
     pub const guile_name = "port";
@@ -231,6 +232,10 @@ pub const Port = struct {
     // Extra?
 
     pub fn flush(a: Port) void { guile.scm_flush(a.s); }
+
+    pub fn putString(a: Port, str: String, start: ?Integer, count: ?Integer) void {
+        _ = guile.scm_put_string(a.s, str.s, orUndefined(start), orUndefined(count));
+    }
     
     // * DONE Zig IO - extended                                           :complete:
     //
@@ -273,17 +278,18 @@ pub const Port = struct {
 
 // * DONE §6.12.9 Default Ports                          :complete:allFunctions:
 const _current = struct {
+    inline fn s(a: @This()) guile.SCM { return @as(Port, @fieldParentPtr("current", &a)).s; }
     pub fn input    () Port { return .{ .s = guile.scm_current_input_port () }; }
     pub fn output   () Port { return .{ .s = guile.scm_current_output_port() }; }
     pub fn @"error" () Port { return .{ .s = guile.scm_current_error_port () }; }
 
-    pub fn setInput (a: Port) void { _ = guile.scm_set_current_input_port (a.s); }
-    pub fn setOutput(a: Port) void { _ = guile.scm_set_current_output_port(a.s); }
-    pub fn setError (a: Port) void { _ = guile.scm_set_current_error_port (a.s); }
+    pub fn setInput (a: @This()) void { _ = guile.scm_set_current_input_port (a.s()); }
+    pub fn setOutput(a: @This()) void { _ = guile.scm_set_current_output_port(a.s()); }
+    pub fn setError (a: @This()) void { _ = guile.scm_set_current_error_port (a.s()); }
 
-    pub fn dynwindInput (a: Port) void { guile.scm_dynwind_current_input_port (a.s); }
-    pub fn dynwindOutput(a: Port) void { guile.scm_dynwind_current_output_port(a.s); }
-    pub fn dynwindError (a: Port) void { guile.scm_dynwind_current_error_port (a.s); }
+    pub fn dynwindInput (a: @This()) void { guile.scm_dynwind_current_input_port (a.s()); }
+    pub fn dynwindOutput(a: @This()) void { guile.scm_dynwind_current_output_port(a.s()); }
+    pub fn dynwindError (a: @This()) void { guile.scm_dynwind_current_error_port (a.s()); }
 };
 
 // * DONE §6.12.10 Type of Ports                         :complete:allFunctions:
@@ -344,14 +350,14 @@ const _void_port = struct {
 /// 
 /// Additional members may be...
 /// #+BEGIN_SRC zig
-///   pub fn ReadWaitFd   (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
-///   pub fn WriteWaitFd  (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
-///   pub fn Print        (port: RPort, dest_port: Port, scm_print_state:[*c]guile.scm_print_state) callconv(.c) c_int;
-///   pub fn Close        (port: RPort) callconv(.c) void;
-///   pub fn Seek         (port: RPort, offset: guile.scm_t_off, whence: c_int) callconv(.c) guile.scm_t_off; // returns the new position in stream
-///   pub fn Truncate     (port: RPort, asdf: guile.scm_t_off) callconv(.c) void;
-///   pub fn RandomAccessP(port: RPort) callconv(.c) c_int;
-///   pub fn NaturalBufferSizes(port: RPort, read_buffer_size: *usize, write_buffer_size: *usize) callconv(.c) void;
+///   pub fn readWaitFd   (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
+///   pub fn writeWaitFd  (port: RPort) callconv(.c) c_int; // (returns a poll-able file descriptor)
+///   pub fn print        (port: RPort, dest_port: Port, scm_print_state:[*c]guile.scm_print_state) callconv(.c) c_int;
+///   pub fn close        (port: RPort) callconv(.c) void;
+///   pub fn seek         (port: RPort, offset: guile.scm_t_off, whence: c_int) callconv(.c) guile.scm_t_off; // returns the new position in stream
+///   pub fn truncate     (port: RPort, asdf: guile.scm_t_off) callconv(.c) void;
+///   pub fn randomAccessP(port: RPort) callconv(.c) c_int;
+///   pub fn naturalBufferSizes(port: RPort, read_buffer_size: *usize, write_buffer_size: *usize) callconv(.c) void;
 ///   pub const call_close_on_gc:bool;
 /// #+END_SRC
 /// 
@@ -359,39 +365,17 @@ pub fn MakeCustomPort(comptime CPT: type) GZZGCustomPort(CPT, type) {
     return struct {
         port_type: *guile.scm_t_port_type,
         
-        // fn functionInfo(FnT: type) std.builtin.Type.Fn {
-        //     switch (@typeInfo(FnT)) {
-        //         .pointer => |p| switch(@typeInfo(p.child)) {
-        //             .@"fn" => |fni| return fni,
-        //             else => {},
-        //         },
-        //         .@"fn" => |fni| return fni,
-        //         else => {}
-        //     }
-        //     
-        //     @compileError("Not a fn type: " ++ @typeName(FnT));
-        // }
-        // 
-        // fn wrapRead() *const WrapAsCFn(signatures.ReadFn) {
-        //     const fti = functionInfo(CPT.read);
-        //     
-        //     if (comptime std.eql(fti.calling_convention, .c))
-        //         return CPT.read;
-        //     
-        //     return struct {
-        //         fn wrapRead(port: RuntimeCustomPort(CPT), dst: ByteVector, start: usize, count: usize) callconv(.c) usize {
-        //             return @call(.auto, CPT.read, .{port, dst, start, count}); // .always_inline ?
-        //         }
-        //     }.wrapRead;
-        // }
+        fn hasFnValue(T: type) bool {
+            return std.meta.activeTag(@typeInfo(T)) == .@"fn";
+        }
         
         pub fn init() @This() {
             const signatures = CustomPortSignatures(CPT);
-            const port_type = guile.scm_make_port_type(CPT.name, @ptrCast(CPT.read), @ptrCast(CPT.write)).?;
+            const port_type = guile.scm_make_port_type(@constCast(CPT.name), @ptrCast(&CPT.read), @ptrCast(&CPT.write)).?;
 
             inline for(signatures.optional_outlines) |outline| {
-                if (@hasDecl(CPT, outline[0]))
-                    outline[1](port_type, @ptrCast(@field(CPT, outline[0])));
+                if (@hasDecl(CPT, outline[0]) and hasFnValue(@TypeOf(@field(CPT, outline[0]))))
+                    outline[1](port_type, @ptrCast(&@field(CPT, outline[0])));
             }
 
             if (@hasDecl(CPT, "call_close_on_gc"))
@@ -400,11 +384,17 @@ pub fn MakeCustomPort(comptime CPT: type) GZZGCustomPort(CPT, type) {
             return .{ .port_type = port_type };
         }
 
-        pub fn create(a: @This()) Port {
-            //scm_c_make_port (scm_t_port_type *type, unsigned long mode_bits, scm_t_bits stream)
-            //scm_c_make_port_with_encoding (scm_t_port_type *type,unsigned long mode_bits, SCM encoding, SCM conversion_strategy, scm_t_bits stream)
-            _ = a;
-            @panic("Unimplemented");
+        pub fn create(a: @This(), mode: Mode, data: if (@sizeOf(CPT) == 0) void else *CPT) Port {
+            return .{ .s = guile.scm_c_make_port(a.port_type, @bitCast(mode), if (@sizeOf(CPT) == 0) 0 else @intFromPtr(data)) };
+        }
+
+       // todo conversion-strategy
+       pub fn createWithEncoding(a: @This(), mode: Mode, enc: Symbol, data: if (@sizeOf(CPT) == 0) void else *CPT) Port {
+            return .{
+                .s = guile.scm_c_make_port_with_encoding(
+                    a.port_type, @bitCast(mode), enc.s, Any.UNDEFINED.s, if (@sizeOf(CPT) == 0) 0 else @intFromPtr(data))
+            };
+
         }
 
         comptime {
@@ -456,7 +446,7 @@ pub fn RuntimeCustomPort(comptime CPT: type) type {
         return Port;
     }
     
-    return struct {
+    return extern struct {
         s: guile.SCM,
         
         pub inline fn lowerPort(a: @This()) Port {
@@ -464,8 +454,8 @@ pub fn RuntimeCustomPort(comptime CPT: type) type {
         }
         
         pub fn get(self: @This()) *CPT {
-            _ = self;
-            @panic("unimplemented");
+            // todo: is there a way to avoid using iw here, or just treat it as fine?
+            return @ptrFromInt(gzzg.internal_workings.gSCMtoIWSCM(self.s)[1]);
         }
     };
 }
@@ -495,6 +485,16 @@ pub fn RuntimeCustomPort(comptime CPT: type) type {
 //                                    scm_i_default_port_conversion_strategy (),
 //                                    (scm_t_bits) stream);
 // #+END_SRC
+
+pub const Mode = packed struct(c_ulong) {
+    _padding1    : Padding(9) = .nil,
+    //open         : bool,
+    readable     : bool = false,
+    writable     : bool = false,
+    unbuffered   : bool = false,
+    line_buffered: bool = false,
+    _padding2    : Padding(@bitSizeOf(c_ulong) - 4 - 9) = .nil,
+};
 
 
 //

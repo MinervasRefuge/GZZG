@@ -324,8 +324,8 @@ pub const Symbol = struct {
 
     pub const guile_name = "symbol";
     
-    pub fn from    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
-    pub fn fromCStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
+    pub fn fromUTF8    (s: []const u8)   Symbol { return .{ .s = guile.scm_from_utf8_symboln(s.ptr, s.len) }; }
+    pub fn fromUTF8CStr(s: [:0]const u8) Symbol { return .{ .s = guile.scm_from_utf8_symbol(s.ptr) }; }
 
     pub fn makeUninterned(a: String) Symbol { return .{ .s = guile.scm_make_symbol(a.s) }; }
 
@@ -383,7 +383,7 @@ pub const Keyword = struct {
 
     pub const guile_name = "keyword";
 
-    pub fn from(s: [:0]const u8) Keyword { return .{ .s = guile.scm_from_utf8_keyword(s) }; }
+    pub fn fromUTF8(s: [:0]const u8) Keyword { return .{ .s = guile.scm_from_utf8_keyword(s) }; }
 
     pub fn toSymbol(a: Keyword) Symbol { return .{ .s = guile.scm_keyword_to_symbol(a.s) }; }
     

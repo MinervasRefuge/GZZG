@@ -326,6 +326,8 @@ pub fn assertTagSize(tag: type) void {
     }
 }
 
+
+/// size in bits
 pub fn Padding(size: comptime_int) type {
     const T = std.builtin.Type;    
     
@@ -340,8 +342,9 @@ pub fn Padding(size: comptime_int) type {
 }
 
 
-pub const hash = @import("internal_workings/hash.zig");
-pub const string = @import("internal_workings/string.zig");
+pub const hash        = @import("internal_workings/hash.zig");
+pub const string      = @import("internal_workings/string.zig");
+pub const byte_vector = @import("internal_workings/byte_vector.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

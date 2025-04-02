@@ -36,7 +36,9 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 
 //
 
-pub const Port = @import("port.zig").Port;
+pub const Port      = @import("port.zig").Port;
+pub const ZigIO     = @import("zig_port.zig").ZigIO;
+pub const WrapZigIO = @import("zig_port.zig").WrapZigIO;
 
 //
 // Not ready for use.

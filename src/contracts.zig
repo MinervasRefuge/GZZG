@@ -36,8 +36,8 @@ fn isString(comptime v: anytype) bool {
 }
 
 fn isStringC(comptime v: anytype) bool {
-    const str: [*c]const u8 = "";
-    return @TypeOf(str, v) == [*c]const u8;
+    const str: [*:0]const u8 = "";
+    return @TypeOf(str, v) == [*:0]const u8;
 }
 
 fn gzzgType(comptime GT: type, comptime note: []const u8) void {
@@ -179,6 +179,10 @@ fn checkFnSignature(comptime FnToCheck: type, comptime Signature: type,  comptim
     }
 }
 
+fn hasFnValue(T: type) bool {
+    return std.meta.activeTag(@typeInfo(T)) == .@"fn";
+}
+
 pub fn GZZGCustomPort(comptime CustomPortT: type, comptime Output: type) type {
     const signatures = @import("port.zig").CustomPortSignatures(CustomPortT);
     const tname = @typeName(CustomPortT);
@@ -196,13 +200,19 @@ pub fn GZZGCustomPort(comptime CustomPortT: type, comptime Output: type) type {
     // check types on required fields
     if (!isStringC(CustomPortT.name))
         @compileError(tname ++ ".name not coercible [*c]string");
+
+    const Read  = @TypeOf(CustomPortT.read);
+    const Write = @TypeOf(CustomPortT.write);
+
+    if (Read == noreturn)  @compileError( "'read' must be a valid function");
+    if (Write == noreturn) @compileError("'write' must be a valid function");
     
-    checkFnSignature(@TypeOf(CustomPortT.read) , signatures.ReadFN , "On " ++ tname ++ " read fn: ");
-    checkFnSignature(@TypeOf(CustomPortT.write), signatures.WriteFN, "On " ++ tname ++ " write fn: " );
+    checkFnSignature(Read, signatures.ReadFn , "On " ++ tname ++ " read fn: ");
+    checkFnSignature(Write, signatures.WriteFn, "On " ++ tname ++ " write fn: " );
 
     // check optional fields
     inline for(signatures.optional_outlines) |outline| {
-        if (@hasDecl(CustomPortT, outline[0]))
+        if (@hasDecl(CustomPortT, outline[0]) and hasFnValue(@TypeOf(@field(CustomPortT, outline[0]))))
             checkFnSignature(
                 @TypeOf(@field(CustomPortT, outline[0])),
                 outline[2],
