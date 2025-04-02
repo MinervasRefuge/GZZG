@@ -172,6 +172,7 @@ pub fn orUndefined(a: anytype) GZZGOptionalType(@TypeOf(a), guile.SCM) {
     return if (a == null) Any.UNDEFINED.s else a.?.s;
 }
 
+// todo: consider changing strs input type to anytype and check if list of strings or enum (or union?).
 pub fn StaticCache(GType: type, strs: []const []const u8) type {
     return struct {
         var container = [1]?GType{null} ** strs.len;
@@ -193,6 +194,24 @@ pub fn StaticCache(GType: type, strs: []const []const u8) type {
             }
 
             return container[idx].?;
+        }
+
+        pub fn fromEnum(Enum: type, sym: Symbol) ?Enum {
+            const len = comptime init: {
+                var max = 0;
+                for (std.meta.tags(Enum)) |tag| max = @max(max, @tagName(tag).len);
+
+                break :init max;
+            };
+            const str_buf: [len + 1]u8 = undefined;
+            const buffer  = std.heap.FixedBufferAllocator.init(&str_buf);
+            const sym_str = sym.toString().toUTF8(buffer.allocator()) catch unreachable;
+            
+            inline for (std.meta.tags(Enum)) |tag| {
+                if (std.mem.eql(u8, @tagName(tag), sym_str)) return tag;
+            }
+
+            return null;
         }
     };
 }

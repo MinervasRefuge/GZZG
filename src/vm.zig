@@ -139,41 +139,19 @@ pub const VMFrame = struct {
 };
 
 pub const EngineEnum = enum(u4) {
+    const cache = gzzg.StaticCache(Symbol, std.meta.fieldNames(@This()));
+    
     regular = guile.SCM_VM_REGULAR_ENGINE,
     debug   = guile.SCM_VM_DEBUG_ENGINE,
 
     pub fn asSymbol(a: EngineEnum) Symbol {
-        const container = struct {
-            var symRegular: ?Symbol = null;
-            var symDebug: ?Symbol = null;
+        return switch(a) {
+            inline else => |ee| cache.get(@tagName(ee))
         };
-
-        switch (a) {
-            .regular => {
-                if (container.symRegular == null) {
-                    container.symRegular = Symbol.from("regular");
-                }
-
-                return container.symRegular.?;
-            },
-            .debug => {
-                if (container.symDebug == null) {
-                    container.symDebug = Symbol.from("debug");
-                }
-
-                return container.symDebug.?;
-            }
-        }
     }
 
     pub fn fromSymbol(a: Symbol) ?EngineEnum {
-        if (gzzg.eq(a, EngineEnum.regular.asSymbol())) {
-            return .regular;
-        } else if (gzzg.eq(a, EngineEnum.debug.asSymbol())) {
-            return .debug;
-        }
-
-        return null;
+        return cache.fromEnum(@This(), a);
     }
 
     comptime {
