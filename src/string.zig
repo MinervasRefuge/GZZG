@@ -224,7 +224,7 @@ pub const String = struct {
     // scm_c_substring_read_only
 
     pub const JoinGrammar = enum {
-        const cache = gzzg.StaticCache(Symbol, &[_][]const u8{
+        const cache = gzzg.StaticCache(Symbol, Symbol.fromUTF8, &[_][]const u8{
             "infix", "strict-infix", "suffix", "prefix"
         });
         

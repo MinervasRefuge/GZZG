@@ -44,7 +44,7 @@ pub const Procedure = struct {
     s: guile.SCM,
 
     pub const guile_name = "procedure";
-    const Symbols = gzzg.StaticCache(Symbol, &.{"documentation", "type-parameter"});
+    const Symbols = gzzg.StaticCache(Symbol, Symbol.fromUTF8, &.{"documentation", "type-parameter"});
     
     //                               ---------------------------
     //                               Primitive Procedures §6.7.2
@@ -248,7 +248,7 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
                         }
                     } else |err| {
                         //todo: format error name scm style (eg. dash over camel case)
-                        guile.scm_throw(Symbol.from(@errorName(err)).s, List.init(.{}).s);
+                        guile.scm_throw(Symbol.fromUTF8(@errorName(err)).s, List.init(.{}).s);
                     }
                 },
                 else => {

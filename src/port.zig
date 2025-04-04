@@ -101,7 +101,7 @@ pub const Port = extern struct {
     pub fn setEncoding(a: Port, enc: String) void   { _ = guile.scm_set_port_encodingx_x(a.s, enc.s); }
     
     pub const ConversionStrategy = enum {
-        const cache = gzzg.StaticCache(Symbol, std.meta.fieldNames(@This()));
+        const cache = gzzg.StaticCache(Symbol, Symbol.fromUTF8, std.meta.fieldNames(@This()));
         
         @"error",
         substitute,
@@ -145,7 +145,7 @@ pub const Port = extern struct {
     // 
 
     pub const BufferingMode = union(enum) {
-        const cache = gzzg.StaticCache(Symbol, std.meta.fieldNames(@This()));
+        const cache = gzzg.StaticCache(Symbol, Symbol.fromUTF8, std.meta.fieldNames(@This()));
         
         none,
         line,

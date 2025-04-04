@@ -139,7 +139,7 @@ pub const VMFrame = struct {
 };
 
 pub const EngineEnum = enum(u4) {
-    const cache = gzzg.StaticCache(Symbol, std.meta.fieldNames(@This()));
+    const cache = gzzg.StaticCache(Symbol, Symbol.fromUTF8, std.meta.fieldNames(@This()));
     
     regular = guile.SCM_VM_REGULAR_ENGINE,
     debug   = guile.SCM_VM_DEBUG_ENGINE,

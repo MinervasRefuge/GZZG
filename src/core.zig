@@ -147,7 +147,7 @@ pub fn catchException(key: [:0]const u8, comptime Captures: type, captures: *con
     };
 
     //todo: is internal catch correct?
-    _ = guile.scm_internal_catch(Symbol.from(key).s,
+    _ = guile.scm_internal_catch(Symbol.fromUTF8(key).s,
                                  ExpC.body   , @constCast(@ptrCast(captures)),
                                  ExpC.handler, @constCast(@ptrCast(captures)));
 }
@@ -173,7 +173,8 @@ pub fn orUndefined(a: anytype) GZZGOptionalType(@TypeOf(a), guile.SCM) {
 }
 
 // todo: consider changing strs input type to anytype and check if list of strings or enum (or union?).
-pub fn StaticCache(GType: type, strs: []const []const u8) type {
+// todo: also check the constructor type stuff.
+pub fn StaticCache(GType: type, constructor: anytype, strs: []const []const u8) type {
     return struct {
         var container = [1]?GType{null} ** strs.len;
 
@@ -190,13 +191,14 @@ pub fn StaticCache(GType: type, strs: []const []const u8) type {
             const idx = comptime index(str);
 
             if (container[idx] == null) {
-                container[idx] = GType.from(str);
+                container[idx] = constructor(str);
             }
 
             return container[idx].?;
         }
 
-        pub fn fromEnum(Enum: type, sym: Symbol) ?Enum {
+        pub fn fromEnum(comptime Enum: type, sym: Symbol) ?Enum {
+            // todo: use symbol.hash in comptime
             const len = comptime init: {
                 var max = 0;
                 for (std.meta.tags(Enum)) |tag| max = @max(max, @tagName(tag).len);
