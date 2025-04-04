@@ -188,42 +188,88 @@ fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Com
     step.dependOn(&cmd.step);
 }
 
-// todo: make as an external callable function
 fn produceGuileModule(b: *std.Build) *std.Build.Module {
-    const envp = std.process.getEnvVarOwned(b.allocator, "C_INCLUDE_PATH") catch @panic("ENV!");
-    defer b.allocator.free(envp);
-
-    // can pkg-conf come into play here, rather than doing this manually.
-    var path_header: ?[]u8 = null;
-    var path_include: []u8 = undefined;
-    var itr_h = std.mem.splitScalar(u8, envp, ':');
-    while (itr_h.next()) |p| {
-        const full_path = b.fmt("{s}/guile/3.0/libguile.h", .{p});
-        std.fs.accessAbsolute(full_path, .{}) catch continue;
-
-        path_header = full_path;
-        path_include = b.fmt("{s}/guile/3.0", .{p});
-        break;
-    }
-
-    var trans = b.addTranslateC(.{
-        .root_source_file = .{ .cwd_relative = path_header.? },
-        .link_libc = true,
-        .target = getTargetOptions(b),
-        .optimize = getOptimiseOptions(b), //
+    const lib      = "guile-3.0";
+    const sub_path = "/guile/3.0";
+    
+    var slstep = SystemLibraryIncludePath.create(b, lib, sub_path);
+    var trans  = b.addTranslateC(.{
+        .root_source_file = slstep.getOutputWithSubPath("libguile.h"),
+        .link_libc        = true,
+        .target           = getTargetOptions(b),
+        .optimize         = getOptimiseOptions(b), 
     });
 
-    trans.addIncludePath(.{ .cwd_relative = path_include });
+    trans.addIncludePath(slstep.getOutput());
 
-    var clean_trans = SourceCleaner.create(b, .{ .translation_path = trans.getOutput() });
-
-    const gmod = clean_trans.addModule("guile");
+    var clean_trans      = SourceCleaner.create(b, .{ .translation_path = trans.getOutput() });
+    const gmod           = clean_trans.addModule("guile");
     gmod.resolved_target = getTargetOptions(b);
-    gmod.optimize = getOptimiseOptions(b);
-    gmod.linkSystemLibrary("guile-3.0", .{ .needed = true });
+    gmod.optimize        = getOptimiseOptions(b);
+    gmod.linkSystemLibrary(lib, .{ .needed = true });
 
     return gmod;
 }
+
+// ~std.Build.Step.Compile.execPkgConfigList~ isn't public or really accsessable via a build step dep.
+// dup as it's own step.
+const SystemLibraryIncludePath = struct {
+    step: std.Build.Step,
+    pkg_name: []const u8,
+    append: [] const u8,
+    output_dir: std.Build.GeneratedFile,
+
+    pub fn getOutput(self: *@This()) std.Build.LazyPath {
+        return .{ .generated = .{ .file = &self.output_dir } };
+    }
+
+    pub fn getOutputWithSubPath(self: *@This(), sub_path: []const u8) std.Build.LazyPath { 
+        return .{  .generated = .{ .file = &self.output_dir, .sub_path = sub_path } };
+    }
+
+    pub fn create(owner: *std.Build, pkg:[] const u8, append_path: []const u8) *@This() {
+        const l = owner.allocator.create(@This()) catch @panic("OOM");
+
+        l.* = .{
+            .step = std.Build.Step.init(.{
+                .id = std.Build.Step.Id.custom,
+                .name = owner.fmt("find pkg {s} for path {s}", .{pkg, append_path}),
+                .owner = owner,
+                .makeFn = make,
+            }),
+            .output_dir = .{ .step = &l.step },
+            .pkg_name = pkg,
+            .append = append_path,
+        };
+
+        return l;
+    }
+
+    fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) !void {
+        const b = step.owner;
+        const self: *@This() = @fieldParentPtr("step", step);
+
+        // todo: better error checking
+        const pkg_config_exe = b.graph.env_map.get("PKG_CONFIG") orelse "pkg-config";
+        //const stdout = try b.runAllowFail(&[_][]const u8{ pkg_config_exe, "--list-all" }, out_code, .Ignore);
+        
+        const result = std.process.Child.run(.{
+            .allocator = b.allocator,
+            .argv = &.{pkg_config_exe, self.pkg_name, "--variable=includedir"},
+            .progress_node = options.progress_node // or is this meant to be .start() (for a child progress node)?
+        })  catch |err| {
+            return step.fail("unable to find pkg '{s}': {s}", .{
+                self.pkg_name, @errorName(err),
+            });
+        };
+        defer b.allocator.free(result.stdout);
+        defer b.allocator.free(result.stderr); //todo stderr ?
+
+        var line = std.mem.tokenizeAny(u8, result.stdout, "\r\n");
+
+        self.output_dir.path = b.fmt("{s}{s}", .{line.next().?, self.append});
+    }
+};
 
 // SourceCleaner hides a few invalid functions from the c-translated header.
 // Helpful for dev purposes, though not needed for external libs
