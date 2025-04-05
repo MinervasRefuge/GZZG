@@ -346,6 +346,12 @@ pub const hash        = @import("internal_workings/hash.zig");
 pub const string      = @import("internal_workings/string.zig");
 pub const byte_vector = @import("internal_workings/byte_vector.zig");
 
+//
+// This still needs to be double check, but proof of concept is there.
+// todo: check with a fine-comb. extracted bytecode output.
+pub const bytecode = if (bopts.has_bytecode_module) @import("bytecode") else struct { };
+// @compileError("bytecode not extracted");
+
 test {
     @import("std").testing.refAllDecls(@This());
 }

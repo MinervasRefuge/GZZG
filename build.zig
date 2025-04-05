@@ -9,23 +9,45 @@ const gzzg_options = .{
     "enable_comptime_number_creation",
     "enable_iw_smob",
     "trust_iw_consts",
+    "has_bytecode_module",
 };
 
 pub fn build(b: *std.Build) !void {
     const module_gzzg = createModule(b);
     const module_gzzg_nondirect = createModule(b);
 
+    // todo: extract bytecode module creation to own function 
+    const extract_bytecode = b.option(bool, "extract-bytecode",
+                                       "Extract Guile bytecodes via (language bytecode)")
+        orelse false;
+    
+    if (extract_bytecode) {
+        const cmd = b.addSystemCommand(&.{"guile", "--no-auto-compile"});
+        cmd.addFileArg(b.path("src/extract-bytecodes.scm"));
+
+        const module_bytecode = b.addModule("bytecode", .{
+            .root_source_file = cmd.captureStdOut(),
+            .target = getTargetOptions(b),
+            .optimize = getOptimiseOptions(b)
+        });
+
+        module_gzzg.addImport("bytecode", module_bytecode);
+        module_gzzg_nondirect.addImport("bytecode", module_bytecode);
+    }
+
     const build_options = b.addOptions();
     build_options.addOption(bool, gzzg_options[0], true);
     build_options.addOption(bool, gzzg_options[1], true);
     build_options.addOption(bool, gzzg_options[2], true);
     build_options.addOption(bool, gzzg_options[3], true);
+    build_options.addOption(bool, gzzg_options[4], extract_bytecode);
 
     const build_options_nondirect = b.addOptions();
     build_options_nondirect.addOption(bool, gzzg_options[0], false);
     build_options_nondirect.addOption(bool, gzzg_options[1], false);
     build_options_nondirect.addOption(bool, gzzg_options[2], false);
     build_options_nondirect.addOption(bool, gzzg_options[3], false);
+    build_options_nondirect.addOption(bool, gzzg_options[4], extract_bytecode);
 
     module_gzzg.addOptions("build_options", build_options);
     module_gzzg_nondirect.addOptions("build_options", build_options_nondirect);
