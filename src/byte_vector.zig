@@ -63,7 +63,7 @@ pub const ByteVector = extern struct {
     
     pub fn len(a: ByteVector) Integer { return .{ .s = guile.scm_bytevector_length(a.s)}; }
     //pub fn lenZ(a: ByteVector) usize { return guile.scm_c_bytevector_length(a.s); }
-    pub fn lenZ(a: ByteVector) usize { return guile.SCM_BYTEVECTOR_LENGTH(a.s); }
+    pub fn lenZ(a: ByteVector) usize { return a.contents(u8).len; }
     
     pub fn equal(a: ByteVector, b: ByteVector) Boolean { return .{ .s = guile.scm_bytevector_eq_p(a.s, b.s) }; }
 

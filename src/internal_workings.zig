@@ -1,12 +1,12 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
 
+//! Contains a parallel implementation of guile scm bit un/packing C macros
+//! Based on libguile/scm.h
+
 const std   = @import("std");
 const guile = @import("gzzg.zig").guile;
 const bopts = @import("build_options");
-
-// Contains a parallel implementation of guile scm bit un/packing C macros
-// Based on libguile/scm.h
 
 pub const SCM     = [*]align(8) usize; // libguile/scm.h:228
 pub const SCMBits = usize;
@@ -346,11 +346,7 @@ pub const hash        = @import("internal_workings/hash.zig");
 pub const string      = @import("internal_workings/string.zig");
 pub const byte_vector = @import("internal_workings/byte_vector.zig");
 
-//
-// This still needs to be double check, but proof of concept is there.
-// todo: check with a fine-comb. extracted bytecode output.
-pub const bytecode = if (bopts.has_bytecode_module) @import("bytecode") else struct { };
-// @compileError("bytecode not extracted");
+pub const bytecode = @import("internal_workings/bytecode.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

@@ -31,6 +31,8 @@ pub fn build(b: *std.Build) !void {
             .optimize = getOptimiseOptions(b)
         });
 
+        cmd.captured_stdout.?.basename = "bytecode.zig";
+
         module_gzzg.addImport("bytecode", module_bytecode);
         module_gzzg_nondirect.addImport("bytecode", module_bytecode);
     }

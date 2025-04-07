@@ -95,6 +95,20 @@
       ((ty . _) (gensym-f)))
     instruction-args))
 
+(define (map-field-types instruction-args)
+  (map
+    (match-lambda
+      (('B . 1)
+       "bool")
+      (('ZI . 16)
+       "i16")
+      ((or ('L . n)
+           ('LO . n)) 
+       (string-append "i" (number->string n)))
+      ((_ . n) 
+       (string-append "u" (number->string n))))
+    instruction-args))
+
                                         ; Indentation
 
 (define code-indent-size 4)
@@ -117,12 +131,22 @@
 (define (format-struct instruction-operands)
   (define a (apply append (map split-operand-word instruction-operands))) ;; todo skip the first 8 bits
 
+  (unless (and (eq? (caar a) 'X)
+               (>= (cdar a) 8))
+    (error "expected 8 bit skip"))
+
+  (set-cdr! (car a) (- (cdar a) 8))
+
+  ;; trim the 8 bit opcode
+  (when (<= (cdar a) 0)
+    (set! a (cdr a)))
+
   (format #f "packed struct {~%~a~v_}"
           (indent
            (format #f "~{~a,~%~}"
                    (map format-field
                         (map-field-names a)
-                        (map (λ (field) (string-append "u" (number->string (cdr field)))) a)
+                        (map-field-types a)
                         (map car a))))
           (current-code-indent)))
 
@@ -135,9 +159,8 @@
        (format-struct operands)
        operation)))))
 
-(define (format-instructions-union enum instructions)
-  (format #f "union(~a) {~%~a~v_}"
-          enum
+(define (format-instructions-union instructions)
+  (format #f "packed union {~%~a~v_}"
           (format #f "~{~a,~%~^~%~}" (map format-op instructions))
           (current-code-indent)))
 
@@ -145,29 +168,28 @@
   (match operation
     ((name id type . args)
      (string-append (make-string (current-code-indent) #\space)
-                    (scheme-name->zig-name (symbol->string name))))))
+                    (scheme-name->zig-name (symbol->string name))
+                    " = "
+                    (number->string id)))))
 
 (define (format-instructions-enum instructions)
-  (format #f "enum(u8) {~a~v_}"
+  (format #f "enum(u8) {~a~v__,~%~v_}"
           (format #f "~%~{~a,~%~}" (indent (map format-op-name instructions)))
+          (indent (current-code-indent))
           (current-code-indent)))
 
 
 (define (format-toplevel instructions)
   (format #t
-          "
-// Generated Code
-// This may not be 100% correct
-// need to check behaviour of ~~packed~~
-code: Code,
-operand: Operand,
+          "//! Guile VM Bytecodes
+//! extracted via =src/extract-bytecodes.scm=
 
-pub const Code = ~a;
-
+pub const Directive = ~a;
+    
 pub const Operand = ~a;
 "
           (format-instructions-enum instructions)
-          (format-instructions-union "Code" instructions)))
+          (format-instructions-union instructions)))
 
                                         ; Main
 
