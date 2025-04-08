@@ -5,11 +5,15 @@ const std   = @import("std");
 const gzzg  = @import("gzzg");
 const guile = gzzg.guile;
 
-const Number    = gzzg.Number;
+const simpleFormat  = gzzg.fmt.simpleFormat;
+const simpleFormatZ = gzzg.fmt.simpleFormatZ;
+
 const Integer   = gzzg.Integer;
+const List      = gzzg.List;
+const Number    = gzzg.Number;
+const Port      = gzzg.Port;
 const Procedure = gzzg.Procedure;
 const String    = gzzg.String;
-
 
 const guile_monte_carlo_pi = \\
     \\ (define (monte-carlo-pi samples)
@@ -156,14 +160,9 @@ fn threadResult1(samples: usize) void {
     xout.lock();
     defer xout.unlock();
     {
-        gzzg.display(String.fromUTF8("Guile eval:\n"));
-        gzzg.display(result);
-        gzzg.newline();
-        gzzg.display(result.exactToInexact());
-        gzzg.newline();
-        gzzg.newline();
-        
-        gzzg.Port.flushAllPorts();
+        const out = std.io.getStdOut().writer();
+
+        simpleFormatZ(out, "Guile eval:\n~A\n~A\n\n", .{result, result.exactToInexact()}) catch {};
     }
 }
 
@@ -174,14 +173,12 @@ fn threadResult2(samples: usize) void {
     xout.lock();
     defer xout.unlock();
     {
-        gzzg.display(String.fromUTF8("GZZG Float:\n"));
-        gzzg.display(result);
-        gzzg.newline();
-        gzzg.display(result.exactToInexact());
-        gzzg.newline();
-        gzzg.newline();
-
-        gzzg.Port.flushAllPorts();
+        // native simple-format usage
+        _ = simpleFormat(
+            .into(Port.current.output()), 
+            .fromUTF8("GZZG Float:\n~A\n~A\n\n"), 
+            .init(.{ result.lowerZ(), result.exactToInexact().lowerZ() })
+        );
     }
 }
 
@@ -192,14 +189,9 @@ fn threadResult3(samples: usize) void {
     xout.lock();
     defer xout.unlock();
     {
-        gzzg.display(String.fromUTF8("GZZG Fixed Num:\n"));
-        gzzg.display(result);
-        gzzg.newline();
-        gzzg.display(result.exactToInexact());
-        gzzg.newline();
-        gzzg.newline();
-
-        gzzg.Port.flushAllPorts();
+        const out = std.io.getStdOut().writer();
+        
+        simpleFormatZ(out, "GZZG Fixed Num:\n~A\n~A\n\n", .{result, result.exactToInexact()}) catch {};
     }
 }
 

@@ -7,6 +7,7 @@ const guile = gzzg.guile;
 
 const GZZGType         = gzzg.contracts.GZZGType;
 const GZZGTypes        = gzzg.contracts.GZZGTypes;
+const GZZGTupleOfTypes = gzzg.contracts.GZZGTupleOfTypes;
 const GZZGOptionalType = gzzg.contracts.GZZGOptionalType;
 
 const Any     = gzzg.Any;
@@ -233,7 +234,7 @@ fn guileToZigName(comptime name: [:0]const u8) [name.len:0]u8 {
 }
 
 /// Takes in a tuple of scm container types
-pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
+pub fn UnionSCM(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
     const Type = std.builtin.Type;
     const len = scmTypes.len + 1;
 
@@ -251,7 +252,7 @@ pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
     union_fields[len-1] = .{ .name = Any.guile_name, .type = Any, .alignment = @alignOf(guile.SCM) };
 
     const SCMEnum = @Type(.{
-        .Enum = .{
+        .@"enum" = .{
             .tag_type = std.math.IntFittingRange(0, len),
             .fields = &enum_fields,
             .decls = &[_]Type.Declaration{},
@@ -259,7 +260,7 @@ pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
     }});
 
     const SCMUnion = @Type(.{
-        .Union = .{
+        .@"union" = .{
             .layout = .auto,
             .tag_type = SCMEnum,
             .fields = &union_fields,
@@ -283,6 +284,13 @@ pub fn UnionSCM(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
             }
 
             return @unionInit(SCMUnion, Any.guile_name, .{ .s = a.s });
+        }
+
+        pub fn into(a: anytype) GZZGType(@TypeOf(a), @This()) {
+            if (comptime std.mem.indexOfScalar(type, &scmTypes, @TypeOf(a)) == null)
+                @compileError("Not a member of this Union: " ++ @typeName(@TypeOf(a)));
+
+            return .{ .s = a.s };
         }
 
         pub fn lowerZ(a: @This()) Any { return .{ .s = a.s }; }

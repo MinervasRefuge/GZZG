@@ -89,6 +89,20 @@ pub fn GZZGTypes(comptime GTs: type, comptime Output: type) type {
     return Output;
 }
 
+pub fn GZZGTupleOfTypes(comptime GTs: anytype, comptime Output: type) type {
+    switch (@typeInfo(@TypeOf(GTs))) {
+        .@"struct" => |st| {
+            if (!st.is_tuple) @compileError("Expect tuple");
+            inline for (GTs, 0..) |T, i| {
+                gzzgType(T, print("types@{d}: ", .{i}));
+            }
+        },
+        else => @compileError("Not a tuple"),
+    }
+
+    return Output;
+}
+
 pub fn GZZGOptionalType(comptime OGT: type, comptime Output: type) type {
     switch (@typeInfo(OGT)) {
         .optional => |opt| {

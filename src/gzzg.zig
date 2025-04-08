@@ -90,8 +90,6 @@ const Frame = @import("vm.zig").Frame;
 //                                        HashTable §6.6.22
 //                                        -----------------
 
-// todo: io
-
 pub const initThreadForGuile = guile.scm_init_guile;
 
 const core = @import("core.zig");
@@ -113,6 +111,7 @@ pub const eqv                     = core.eqv;
 pub const equal                   = core.equal;
 pub const eqZ                     = core.eqZ;
 
+pub const fmt = @import("fmt.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
