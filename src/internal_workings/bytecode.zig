@@ -7,90 +7,148 @@ const bopts = @import("build_options");
 
 const Any        = gzzg.Any;
 const ByteVector = gzzg.ByteVector;
-const Procedure  = gzzg.Procedure;
 const Port       = gzzg.Port;
+const Procedure  = gzzg.Procedure;
 
-// todo: jtable fix
-// note: types of ~v32:x8-l24~ eg. "jtable" are var-length. It is not currently correct
-// and the lengths/sizes won't be calculated correctly. Nor will the following ops be correct.
 
 pub const Bytecode = packed struct {
     directive: Directive,
     operand: Operand,
 
-    /// gets the full op width (inc. directive)
-    pub fn getWidth(op: *const align(1) @This()) usize {
-        const Backing = @typeInfo(Bytecode.Directive).@"enum".tag_type;
-        const max = std.math.maxInt(Backing);
+    /// comptime categories of the directives
+    fn categoriseDirectives() struct { varlen: []Directive, regular:[]Directive, noop: []Directive} {
         @setEvalBranchQuota(60_000);
-        
-        // there's probably a better way then also expanding no-op instructions > 166
-        inline for(0..max) |dnum| {
-            const d: Directive = @enumFromInt(dnum);
-            
-            if (op.directive == d) {
-                if (comptime std.enums.tagName(Directive, d)) |name| {
-                    const idx = std.meta.fieldIndex(Operand, name).?;
-                    const bits = @bitSizeOf(std.meta.fields(Operand)[idx].type);
-                    
-                    return @divExact(bits, 8) + 1;
-                } else {
-                    @panic("Unknown instruction"); // <-----
+
+        const Backing   = @typeInfo(Bytecode.Directive).@"enum".tag_type;
+        const max       = std.math.maxInt(Backing);
+
+        var varlen  = std.BoundedArray(Directive, max){};
+        var regular = std.BoundedArray(Directive, max){};
+        var noop    = std.BoundedArray(Directive, max){};
+
+        next: for (0..max) |idx_directive| {
+            const directive: Directive = @enumFromInt(idx_directive);
+
+            if (std.enums.tagName(Directive, directive)) |name| {
+                for (std.meta.fields(@FieldType(Operand, name))) |field| {  // lp over structs
+                    if (field.type == VariableLengthOperand) {
+                        varlen.append(directive) catch @compileError("Oh No");
+                        continue :next;
+                    }
                 }
+
+                regular.append(directive) catch @compileError("Oh No");
+
+            } else {
+                noop.append(directive) catch @compileError("Oh No");
             }
         }
+
+        return .{
+            .varlen  = varlen .slice(),
+            .regular = regular.slice(),
+            .noop    = noop   .slice(),
+        };
+    }
+
+    /// gets the full op width (inc. directive)
+    pub fn getWidth(op: *const align(1) @This()) usize {
+        const categories = comptime categoriseDirectives();
         
-        unreachable;
+        inline for (categories.regular) |d| 
+            if (d == op.directive) return @divExact(@bitSizeOf(@FieldType(Operand, @tagName(d))), 8) + 1;
+        
+        inline for (categories.varlen) |d| { // should only ever be one instruction and the last operand var len
+            if (d == op.directive) {
+                var bits:usize = @divExact(@bitSizeOf(@FieldType(Operand, @tagName(d))), 8) + 1;
+                
+                inline for (std.meta.fields(@FieldType(Operand, @tagName(d)))) |field| {
+                    if (field.type == VariableLengthOperand) {
+                        bits += @field(@field(op.operand, @tagName(d)), field.name).lenBytes();
+                    }
+                }
+
+                return bits;
+            }            
+        }
+
+        // categories.noop
+        @panic("Unknown instruction");
     }
 
     pub fn format(value: Bytecode, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
         _ = fmt;
         _ = options;
-        const Backing = @typeInfo(Directive).@"enum".tag_type;
-        const max = std.math.maxInt(Backing);
-        
-        // you can't ~switch { inline else ... }~ over a non-exhaustive enum
-        inline for(0..max) |dnum| {
-            const d: Bytecode.Directive = @enumFromInt(dnum);
+        const categories = comptime categoriseDirectives();
+
+        inline for (categories.regular ++ categories.varlen) |d| {
+            if (d == value.directive) {
+                const name = @tagName(d);
+                const operand_fields = comptime std.meta.fields(@FieldType(Operand, name));
+
+                try writer.print("{s}{{", .{ name });
             
-            if (value.directive == d) {
-                if (comptime std.enums.tagName(Bytecode.Directive, d)) |name_directive| {
-                    const f = @field(value.operand, name_directive);
-                    const operand_fields = comptime std.meta.fieldNames(@TypeOf(f));
-                    
-                    try writer.print("{s}{{", .{ name_directive });
-                    
-                    inline for (operand_fields, 0..) |name_operand_field, idx| {
-                        if (name_operand_field[0] != '_') {
-                            // try writer.print(
-                            //     if (idx+1 == operand_fields.len)
-                            //         " .{s} = {}"
-                            //     else 
-                            //         " .{s} = {},", // not correct if the last field is ~_~ (per if)
-                            //     .{name_operand_field, @field(f, name_operand_field)}
-                            // );
-                            
-                            try writer.print(
-                                if (idx+1 == operand_fields.len)
-                                    " {}"
-                                else 
-                                    " {},", // not correct if the last field is ~_~ (per if)
-                                .{@field(f, name_operand_field)}
-                            );
-                        }
+                inline for (operand_fields, 0..) |operand_field, idx| {
+                    if (operand_field.name[0] != '_') {
+                        // try writer.print(
+                        //     if (idx+1 == operand_fields.len)
+                        //         " .{s} = {}"
+                        //     else 
+                        //         " .{s} = {},", // not correct if the last field is ~_~ (per if)
+                        //     .{name_operand_field, @field(f, name_operand_field)}
+                        // );
+                        
+                        try writer.print(
+                            if (idx+1 == operand_fields.len)
+                                " {}"
+                            else 
+                                " {},", // not correct if the last field is ~_~ (per if)
+                            .{ @field(@field(value.operand, name), operand_field.name) }
+                        );
                     }
-                    
-                    try writer.print(" }}", .{});
-                    
-                    return;
-                } else {
-                    @panic("Unknown instruction");
                 }
+                
+                try writer.print(" }}", .{});
+                
+                return;
             }
         }
-        
-        unreachable;
+
+        // categories.noop
+        @panic("Unknown instruction"); // todo: change?
     }
+
+    // todo: ~VariableLengthOperand~ still needs to be checked.
+    /// v32:x8-l24
+    pub const VariableLengthOperand = packed struct {
+        /// x8-l24
+        pub const Word = packed struct { _x: u8, a: i24 };  // this could probably just be a i24
+ 
+        trailing: u32,
+        additional: void,
+        
+        /// Length of additional words in bytes
+        pub fn lenBytes(self: *align(1) const @This()) usize { return self.trailing * @sizeOf(Word); }
+        pub fn words(self: *align(1) const @This()) []align(1) const Word {
+            return @as([*]align(1) const Word, @ptrCast(&self.additional))[0..self.trailing];
+        }
+
+        pub fn format(value: VariableLengthOperand, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+            _ = fmt;
+            _ = options;
+
+            const wds = value.words();
+            
+            try writer.writeAll("[");
+            for (wds, 1..) |w, i| {
+                try writer.print("{d}", .{w.a});
+                if (i != wds.len) {
+                    try writer.writeAll(", ");
+                }
+            }
+            try writer.writeAll("]");
+        }
+    };
 
     pub const Directive = if (bopts.has_bytecode_module) 
         @import("bytecode").Directive 
@@ -99,7 +157,7 @@ pub const Bytecode = packed struct {
 
     // note: only checked in little-endian
     pub const Operand = if (bopts.has_bytecode_module) 
-        @import("bytecode").Operand
+        @import("bytecode").Operand(VariableLengthOperand)
     else 
         packed union {}; 
 };

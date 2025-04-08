@@ -16,7 +16,9 @@
 ;; low->high bytes
 ;; 'X8_S12_S12 => '((X . 8) (S . 12) (S . 12))
 (define (split-operand-word sym)
-  (map split-unit (string-split (symbol->string sym) #\_)))
+  (if (eq? sym 'V32_X8_L24)
+      '((V32_X8_L24 . 32)) ;; don't split the var length field (treat as one of a kind case)
+      (map split-unit (string-split (symbol->string sym) #\_))))
 
                                         ; Naming
 
@@ -98,6 +100,8 @@
 (define (map-field-types instruction-args)
   (map
     (match-lambda
+      (('V32_X8_L24 . _)
+       "VarLen")
       (('B . 1)
        "bool")
       (('ZI . 16)
@@ -129,7 +133,9 @@
                  (format #f "~v_~a: ~a" (current-code-indent) name type)))
 
 (define (format-struct instruction-operands)
-  (define a (apply append (map split-operand-word instruction-operands))) ;; todo skip the first 8 bits
+  (define a (apply append (map split-operand-word instruction-operands)))
+
+  ;; todo: consider asserting that ~V32_X8_L24~ operand is the last member of the instruction
 
   (unless (and (eq? (caar a) 'X)
                (>= (cdar a) 8))
@@ -186,10 +192,12 @@
 
 pub const Directive = ~a;
     
-pub const Operand = ~a;
+pub fn Operand(comptime VarLen: type) type {
+    return ~a;
+}
 "
           (format-instructions-enum instructions)
-          (format-instructions-union instructions)))
+          (indent (format-instructions-union instructions))))
 
                                         ; Main
 
