@@ -23,7 +23,8 @@ pub const Keyword    = @import("string.zig").Keyword;
 pub const Pair       = @import("list.zig").Pair;
 pub const ListOf     = @import("list.zig").ListOf;
 pub const List       = ListOf(Any);
-pub const Vector     = @import("vector.zig").Vector;
+pub const VectorOf   = @import("vector.zig").VectorOf;
+pub const Vector     = VectorOf(Any);
 // Bit Vectors
 pub const ByteVector = @import("byte_vector.zig").ByteVector;
 //Arrays

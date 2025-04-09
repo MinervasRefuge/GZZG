@@ -5,6 +5,7 @@ const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const GZZGType  = gzzg.contracts.GZZGType;
 const GZZGTypes = gzzg.contracts.GZZGTypes;
 
 const Any     = gzzg.Any;
@@ -37,7 +38,7 @@ pub const Pair = struct {
 //                                           List §6.6.9
 //                                           -----------
 
-pub fn ListOf(comptime T: type) type {
+pub fn ListOf(comptime T: type) GZZGType(T, type) {
     return struct {
         s: guile.SCM,
 
