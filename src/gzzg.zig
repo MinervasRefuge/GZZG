@@ -34,7 +34,8 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 //Structures
 //Association Lists
 //VHashs
-//pub const HashTable = SCMWrapper(null);
+pub const HashTableOf = @import("hash_table.zig").HashTableOf;
+pub const HashTable   = HashTableOf(Any, Any);
 
 //
 
