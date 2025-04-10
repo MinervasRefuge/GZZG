@@ -16,23 +16,26 @@ const Integer = gzzg.Integer;
 //                                           Pair §6.6.8
 //                                           -----------
 
-pub const Pair = struct {
-    s: guile.SCM,
+pub fn PairOf(H: type, T: type) type {
+    return struct {
+        s: guile.SCM,
+        
+        pub const guile_name = "pair";
+        const Self = @This();
+        pub const Child = .{ H, T };
+        
+        pub fn from(h: H, t: T) Self { return .{ .s = guile.scm_cons(h.s, t.s) }; }
 
-    pub const guile_name = "pair";
-    
-    // todo: typecheck
-    pub fn from(x: anytype, y: anytype) Pair { return .{ .s = guile.scm_cons(x.s, y.s) }; }
-
-    pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_pair_p(a.s) }; }
-    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
-
-    pub fn lowerZ(a: Pair) Any { return .{ .s = a.s }; }
-
-    comptime {
-        _ = gzzg.contracts.GZZGType(@This(), void);
-    }
-};
+        // todo: typecheck
+        pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_pair_p(a.s) }; }
+        pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
+        pub fn lowerZ(a: Self) Any { return .{ .s = a.s }; }
+        
+        comptime {
+            _ = gzzg.contracts.GZZGType(@This(), void);
+        }
+    };
+}
 
 //                                           -----------
 //                                           List §6.6.9

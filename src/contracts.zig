@@ -51,9 +51,18 @@ fn gzzgType(comptime GT: type, comptime note: []const u8) void {
                     @compileError(note ++ "Expected `s` field to be a `guile.SCM`. Found: " ++
                                       @typeName(s.fields[s_idx].type));
 
-                if (@hasDecl(GT, "Child") and @TypeOf(GT.Child) != type)
-                    @compileError(note ++ "Expected `Child` to be a type on " ++ tname ++ ". Found: "
-                                      ++ @typeName(@TypeOf(GT.Child)));
+                if (@hasDecl(GT, "Child")) {
+                    switch (@typeInfo(@TypeOf(GT.Child))) {
+                        .type => gzzgType(GT.Child, note ++ ":child"),
+                        .@"struct" => |st| { 
+                            if (!st.is_tuple) @compileError(note ++ ":child:Expect tuple");
+                            inline for (st.fields, 0..) |_, i| {
+                                gzzgType(GT.Child[i], print(note ++ ":types@{d}: ", .{i}));
+                            }
+                        },
+                        else => @compileError(note ++ "expect Child to be of a type or a tuple of types"),
+                    }
+                }
 
                 if (!@hasDecl(GT, "guile_name"))
                     @compileError(note ++ "Missing human name `guile_name` on type: " ++ tname);
