@@ -2,18 +2,46 @@
 #+OPTIONS: ^:nil
 * GZZG
 [[https://ko-fi.com/Z8Z81D600C][https://ko-fi.com/img/githubbutton_sm.svg]]
-
+----------
 A typed Zig wrapper for the Guile (scheme) C API.
-
-Includes an experimental (read: unstable likely to change) direct memory access API.
 
 Requires ~libguile-3.0~. Currently targeting ~zig@0.14~
 
-Note that this is very much 🚧 /work in progress/ 🚧.
+** Basic Example
+#+begin_src scheme
+  (display "Sum of Numbers: ")
+  (display (+ (1+ 4) 2 3))
+  (newline)
+#+end_src
+
+#+begin_src zig :results verbatim :exports both
+  const gzzg    = @import("gzzg");
+  const Num     = gzzg.Number;
+  const Str     = gzzg.String;
+  const display = gzzg.display;
+  const newline = gzzg.newline;
+
+  pub fn main() !void {
+      gzzg.initThreadForGuile();
+      
+      const a = Num.from(4);
+      const b = Num.from(2);
+
+      display(Str.fromUTF8("Sum of Numbers: "));
+      display(a.onePlus().sum(b).sum(.from(3)));
+      newline();
+  }
+#+end_src
+
+#+RESULTS:
+: Sum of Numbers: 10
+
+Checkout the other examples in the =Example= folder.
 
 ** Note regarding ~setjmp~ / ~longjmp~
-Zig considers unsound and can't be used. [[https://github.com/ziglang/zig/issues/1656][Issue 1656]]. So those corners /currently/ are a little rough.
+Zig considers unsound and can't be used. [[https://github.com/ziglang/zig/issues/1656][Issue 1656]]. There are workarounds planned in the future. It's recommended for the moment to consider places of memory allocation (that don't use Guile's GC Alloc) and appropriately check or wrap with a ~gzzg.catchException~ "closure".
 
+----------
 #+begin_quote
 I'm not a fruitcake. Am I lad? -- Wallace
 #+end_quote

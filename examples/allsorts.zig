@@ -3,96 +3,94 @@
 
 const std   = @import("std");
 const gzzg  = @import("gzzg");
-const guile = gzzg.guile;
+
+const display      = gzzg.display;
+const newline      = gzzg.newline;
+const simpleFormat = gzzg.fmt.simpleFormat;
+
+const Any       = gzzg.Any;
+const List      = gzzg.List;
+const ListOf    = gzzg.ListOf;
+const Number    = gzzg.Number;
+const Port      = gzzg.Port;
+const Procedure = gzzg.Procedure;
+const String    = gzzg.String;
+const Symbol    = gzzg.Symbol;
+
 
 pub fn main() !void {
-    guile.scm_init_guile();
+    gzzg.initThreadForGuile();
 
-    const out_port = guile.scm_current_output_port();
-    const scmstr = guile.scm_from_utf8_string("Hello World!");
-    const scmstr2 = gzzg.String.fromUTF8("And again but different.");
+    const out_port = Port.current.output();
+    const scmstr  = String.fromUTF8("Hello World!");
+    const scmstr2 = String.fromUTF8("And again but different string!");
 
-    _ = guile.scm_display(scmstr, out_port);
-    _ = guile.scm_newline(out_port);
+    display(scmstr);
+    newline();
+    _ = simpleFormat(.into(out_port), scmstr2, List.init(.{}));
 
-    //const str_module: *const [*:0]u8 = "guile";
-    //const str_fn_display: *const [*:0]u8 = "display";
-    const gfn_display = guile.scm_c_public_ref("guile", "display");
+    // This is similar as the above two simpleFormat and display
+    try out_port.writer().writeAll("For a third time!");
+    newline();
 
-    _ = guile.scm_call_1(gfn_display, scmstr2.s);
-    _ = guile.scm_newline(out_port);
-
-    const w = std.io.getStdOut().writer();
-
-    try w.print("Would you look at that!\n", .{});
-    try w.print("SCM size:{d} => struct(scm) {d}\n", .{ @sizeOf(guile.SCM), @sizeOf(struct { m: guile.SCM }) });
-
-    //    const test_int = GInteger{ .s = 5 };
-    //    //const test_flt: gFlt = test_int;
-    //    const test_flt = GRational{ .s = 5 };
-    //
-    //    _ = gSumOld(@as(u32, 5), @as(i16, 5));
-
-    //    try w.print("tint: {d}, tflt: {d}\n", .{ test_int.s, test_flt.s });
-
-    try w.print("\n\nLet's try with scm now!\n", .{});
-
-    const na = gzzg.Number.from(54321);
-    const nb = gzzg.Number.from(432.665);
-
-    _ = nb.sum(nb);
-
+    // Sum numbers
+    const na = Number.from(54321);
+    const nb = Number.from(432.665);
     const no = na.sum(nb);
 
-    try w.print("na: " ++ @typeName(@TypeOf(na)) ++ " nb: " ++ @typeName(@TypeOf(nb)) ++ " no: " ++ @typeName(@TypeOf(no)) ++ "\n", .{});
+    display(no);
+    newline();
+    display(Number.from(30).sum(.from(12)));
+    newline();
 
-    //try w.print("\n{d} + {d} = native: {d} scm: {d}\n", .{gIntegerToU32(na), gIntegerToU32(nb),
-    //                                                      gIntegerToU32(na) + gIntegerToU32(nb),
-    //                                                      gIntegerToU32(no)});
+    // display a list of numbers
+    const lst = gzzg.List.init(.{ Number.from(5), Number.from(1) });
+    display(lst);
+    newline();
 
-    _ = guile.scm_call_1(gfn_display, no.s);
-    _ = guile.scm_newline(out_port);
-    _ = guile.scm_display(gzzg.Number.from(30).sum(gzzg.Number.from(12)).s, out_port);
-    _ = guile.scm_newline(out_port);
+    // same goes for list of strings
+    const los = ListOf(String).init(.{ String.fromUTF8("a"), String.fromUTF8("b") });
+    display(los);
+    newline();
 
-    const lst = gzzg.List.init(.{ gzzg.Number.from(5), gzzg.Number.from(1) });
+    // These two are only eq because of being inside fix num size
+    std.debug.assert(gzzg.eqZ(Number.from(5), Number.from(5)));
 
-    _ = guile.scm_display(lst.s, out_port);
-    _ = guile.scm_newline(out_port);
-
-    _ = guile.scm_display(guile.scm_append_x(gzzg.List.init(.{ lst, gzzg.List.init(.{ gzzg.String.fromUTF8("a"), gzzg.String.fromUTF8("b") }) }).s), out_port);
-    _ = guile.scm_newline(out_port);
-
-    _ = guile.scm_display(lst.s, out_port);
-    _ = guile.scm_newline(out_port);
-
-    const la = gzzg.List.init(.{ gzzg.Number.from(5), gzzg.Number.from(2) });
-    gzzg.display(la);
-    gzzg.newline();
-
+    // These two are compared with the right method
+    std.debug.assert(Number.from(5).equal(.from(5)).toZ());
+    
+    // Try a capture an error that could fail.
     if (divide(gzzg.Number.from(5), gzzg.Number.from(0))) |v| {
-        std.debug.print("{}\n", .{v});
+        std.debug.print("Won't get here: {}\n", .{v});
     } else |_| {
-        std.debug.print("error div zero catched\n", .{});
+        std.debug.print("error: div zero caught\n", .{});
     }
-    gzzg.newline();
-    gzzg.display(gzzg.String.fromUTF8("It Worked!\n"));
-
-    const dbz = gzzg.Procedure.define("div-by-zero", divideByZero, "Test of raise exceptions from a zig error", false);
-
-    _ = gzzg.eqZ(gzzg.Number.from(5), gzzg.Number.from(5));
     
-    _ = guile.scm_call_0(dbz.s);
+    // register a custom Guile thunk
+    const dbz = Procedure.define(
+        "div-by-zero",
+        divideByZero,
+        "Test of raise exceptions from a zig error",
+        false
+    );
+
+    std.debug.print("Time to long jmp away!\n", .{});
+    
+    // This will trigger a long job from the ~divideByZero()~ fn and cause the program to exit.
+    _ = dbz.call(.{});
+
+    std.debug.print("This line will never be run.\n", .{});
 }
 
-fn divideByZero() gzzg.Number {
-    const a = gzzg.Number.from(10).divide(gzzg.Number.from(0)); // long jmp from HEEEeeeaaarrrr.r.r...
+fn divideByZero() Number {
+    const a = Number.from(10).divide(.from(0)); // long jmp from HEEEeeeaaarrrr.r.r...
     
-    return a.sum(gzzg.Number.from(2));
+    return a.sum(.from(2));
 }
 
-fn divide(a: gzzg.Number, b: ?gzzg.Number) !gzzg.Number {
-    var out: error{numericalOverflow}!gzzg.Number = undefined;
+/// Divide by zero safe function
+fn divide(a: Number, b: ?Number) !Number {
+    var out: error{numericalOverflow}!Number = undefined;
     const captures = .{ a, b, &out };
     const Captures = @TypeOf(captures);
 
@@ -101,7 +99,7 @@ fn divide(a: gzzg.Number, b: ?gzzg.Number) !gzzg.Number {
             data[2].* = data[0].divide(data[1]);
         }
 
-        pub fn handler(data: *const Captures, _: gzzg.Symbol, _: gzzg.Any) void {
+        pub fn handler(data: *const Captures, _: Symbol, _: Any) void {
             data[2].* = error.numericalOverflow;
         }
     });
