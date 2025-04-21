@@ -298,10 +298,10 @@ pub fn UnionSCM(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
 }
 
 // §6.11.7 Returning and Accepting Multiple Values
-pub fn MultiValue(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
+pub fn MultiValue(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
     if (scmTypes.len < 2) @compileError("Should be more than one value type");
     const len = scmTypes.len;
-    const typeArray:[len]type = undefined;
+    var typeArray:[len]type = undefined;
     //comptime var name = "(values";
 
     inline for(scmTypes, 0..) |SCMType, idx| {
@@ -332,7 +332,7 @@ pub fn MultiValue(comptime scmTypes: anytype) GZZGTypes(scmTypes, type) {
         }
 
         pub fn fromTuple(v: Tuple) @This() {
-            return .{ .s = guile.scm_values(gzzg.ListOf(Any).initUnsafe(v)) };
+            return .{ .s = guile.scm_values(gzzg.ListOf(Any).initUnsafe(v).s) };
         }
 
         // Note that this looses the typeing

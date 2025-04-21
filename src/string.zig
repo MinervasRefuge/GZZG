@@ -333,7 +333,7 @@ pub const Symbol = struct {
     pub fn toString (a: Symbol) String  { return .{ .s = guile.scm_symbol_to_string(a.s) }; }
     
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_symbol_p(a) }; }
-    pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_symbol(a) != 0; }
+    pub fn isZ(a: guile.SCM) bool { return is(a).toZ(); } // { return guile.scm_is_symbol(a) != 0; } // SCM_UNPACK issue again
     pub fn lowerZ(a: Symbol) Any { return .{ .s = a.s }; }
 
     pub fn isInterned(a: Symbol) Boolean { return .{ .s = guile.scm_symbol_interned_p(a.s) }; }
@@ -347,7 +347,7 @@ pub const Symbol = struct {
     pub fn fromEnum(tag: anytype) Symbol {
         //todo: complete vs uncomplete enum?
         switch (@typeInfo(@TypeOf(tag))) {
-            .Enum => {},
+            .@"enum" => {},
             else => @compileError("Expected enum varient"),
         }
 
@@ -363,7 +363,7 @@ pub const Symbol = struct {
                 //loops don't cover the sentinel byte nor does the length. so +1
                 str[tns.len] = 0;
 
-                return Symbol.fromCStr(&str);
+                return Symbol.fromUTF8(&str);
             },
         }
     }

@@ -40,6 +40,7 @@ fn isStringC(comptime v: anytype) bool {
     return @TypeOf(str, v) == [*:0]const u8;
 }
 
+//todo: improve compiler error string hints
 fn gzzgType(comptime GT: type, comptime note: []const u8) void {
     const tname = @typeName(GT);
     switch (@typeInfo(GT)) {
@@ -74,7 +75,7 @@ fn gzzgType(comptime GT: type, comptime note: []const u8) void {
                 @compileError(note ++ "Missing `s: guile.SCM` field in: " ++ tname);
             }
         },
-        else => @compileError(note ++ tname ++ " not a struct"),
+        else => @compileError(note ++ tname ++ " not a gzzg container struct"),
     }
 }
 
@@ -92,7 +93,8 @@ pub fn GZZGTypes(comptime GTs: type, comptime Output: type) type {
                 gzzgType(f.type, print("types@{d}: ", .{i}));
             }
         },
-        else => @compileError("Not a tuple"),
+        .array => |a| gzzgType(a.child, "array:"),
+        else => @compileError("Not an iterable type"),
     }
 
     return Output;

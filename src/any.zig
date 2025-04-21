@@ -11,7 +11,7 @@ const Boolean = gzzg.Boolean;
 
 pub const Any = extern struct {
     pub const ELISP_NIL   = Any{ .s = guile.SCM_ELISP_NIL };
-    pub const EOF         = Any{ .s = guile.SCM_EOF_VALUE };
+    pub const EOF         = Any{ .s = guile.SCM_EOF_VAL };
     pub const EOL         = Any{ .s = guile.SCM_EOL };
     pub const UNDEFINED   = Any{ .s = guile.SCM_UNDEFINED };
     pub const UNSPECIFIED = Any{ .s = guile.SCM_UNSPECIFIED };

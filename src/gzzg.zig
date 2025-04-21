@@ -55,7 +55,11 @@ pub const Module      = @import("program.zig").Module;
 pub const Procedure   = @import("program.zig").Procedure;
 pub const ThunkOf     = @import("program.zig").ThunkOf;
 pub const Thunk       = ThunkOf(Any);
-pub const ForeignType = @import("foreign_object.zig").ForeignType;
+
+//
+
+pub const ForeignObjectOf = @import("foreign_object.zig").ForeignObjectOf;
+pub const ForeignType     = @import("foreign_object.zig").Identity;
 
 //
 

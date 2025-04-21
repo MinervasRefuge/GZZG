@@ -59,7 +59,8 @@ pub fn ListOf(comptime T: type) GZZGType(T, type) {
         
         pub fn len (a: Self) Integer { return .{ .s = guile.scm_length(a.s) }; }
         pub fn lenZ(a: Self) c_long { return guile.scm_ilength(a.s); }
-        
+
+        // ensure that this init can take in an array, not just a tuple
         pub fn init(lst: anytype) GZZGTypes(@TypeOf(lst), Self) { // todo: fix type constraint on the input list
             const SCMTuple = std.meta.Tuple(&[1]type{guile.SCM} ** (lst.len + 1));
             var outlst: SCMTuple  = undefined;
