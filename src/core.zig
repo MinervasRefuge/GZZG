@@ -234,7 +234,7 @@ fn guileToZigName(comptime name: [:0]const u8) [name.len:0]u8 {
 }
 
 /// Takes in a tuple of scm container types
-pub fn UnionSCM(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
+pub fn UnionOf(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
     const Type = std.builtin.Type;
     const len = scmTypes.len + 1;
 

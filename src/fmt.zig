@@ -5,7 +5,7 @@ const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const UnionSCM = gzzg.UnionSCM;
+const UnionOf = gzzg.UnionOf;
 
 const GZZGTypes = gzzg.contracts.GZZGTypes;
 
@@ -125,7 +125,7 @@ pub fn simpleFormatZ(writer: anytype, comptime message: []const u8, args: anytyp
 }
 
 // §6.12.5 Simple Textual Output
-pub fn simpleFormat(destination: UnionSCM(.{ Port, Boolean }), msg: String, args: ListOf(Any)) ?String {
+pub fn simpleFormat(destination: UnionOf(.{ Port, Boolean }), msg: String, args: ListOf(Any)) ?String {
     const out = guile.scm_simple_format(destination.s, msg.s, args.s);
 
     return if (String.isZ(out)) .{ .s = out } else null;
