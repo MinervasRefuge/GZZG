@@ -124,12 +124,12 @@ pub const Port = extern struct {
     };
 
     pub fn conversionStrategy(a: ?Port) ConversionStrategy { 
-        const p = if (a != null) a.s else Boolean.FALSE.s;
+        const p = if (a != null) a.s else Boolean.falsum.s;
         return .to(.{ .s = guile.scm_port_conversion_strategy(p) }).?; 
     }
 
     pub fn setConversionStrategy(a: ?Port, cs: ConversionStrategy) void {
-        const p = if (a != null) a.s else Boolean.FALSE.s;
+        const p = if (a != null) a.s else Boolean.falsum.s;
         guile.scm_set_port_conversion_strategy(p, cs.get());
     }
 

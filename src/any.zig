@@ -20,7 +20,7 @@ pub const Any = extern struct {
 
     s: guile.SCM,
 
-    pub fn is (_: guile.SCM) Boolean { return Boolean.TRUE; } // what about `guile.SCM_UNDEFINED`?
+    pub fn is (_: guile.SCM) Boolean { return Boolean.verum; } // what about `guile.SCM_UNDEFINED`?
     pub fn isZ(_: guile.SCM) bool    { return true; }
 
     pub inline fn lowerZ(a: Any) Any { return a; }

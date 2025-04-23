@@ -21,7 +21,7 @@ pub const Stack = struct {
     pub const guile_name = "stack";
     
     // todo: check args required for make-stack
-    pub fn make() Stack { return .{ .s = guile.scm_make_stack(Boolean.TRUE.s, guile.SCM_EOL) }; }
+    pub fn make() Stack { return .{ .s = guile.scm_make_stack(Boolean.verum.s, guile.SCM_EOL) }; }
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_stack_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }

@@ -15,10 +15,12 @@ pub const Boolean = struct {
 
     pub const guile_name = "boolean";
 
-    pub const TRUE : Boolean = .{ .s = guile.SCM_BOOL_T };
-    pub const FALSE: Boolean = .{ .s = guile.SCM_BOOL_F };
+    /// True: #t
+    pub const verum : Boolean = .{ .s = guile.SCM_BOOL_T };
+    /// False: #f
+    pub const falsum: Boolean = .{ .s = guile.SCM_BOOL_F };
 
-    pub fn from(b: bool) Boolean { return if (b) TRUE else FALSE; }
+    pub fn from(b: bool) Boolean { return if (b) verum else falsum; }
 
     pub fn toZ(a: Boolean) bool { return guile.scm_to_bool(a.s) != 0; }
 
