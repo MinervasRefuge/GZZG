@@ -1,8 +1,10 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
-
+const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
+
+const GZZGByteable = gzzg.contracts.GZZGByteable;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
@@ -20,19 +22,13 @@ pub const ByteVector = extern struct {
     pub const BIG: Symbol = .{ .s = guile.scm_endianness_big };
     pub const LITTLE: Symbol = .{ .s = guile.scm_endianness_little };
 
-    pub fn from(data: []const u8) ByteVector {
-        const bv = init(data.len);
-
-        @memcpy(bv.contents(u8), data);
-
-        return bv;
+    pub inline fn from(data: anytype) GZZGByteable(@TypeOf(data), ByteVector) {
+        return fromNative(std.meta.Child(@TypeOf(data)), data);
     }
 
-    pub fn fromI8(data: []const i8) ByteVector {
-        const bv = init(data.len);
-
-        @memcpy(bv.contents(i8), data);
-
+    pub fn fromNative(comptime N: type, data: []const N) ByteVector {
+        const bv = make(@sizeOf(N) * data.len);
+        @memcpy(bv.contents(N), data);
         return bv;
     }
 
@@ -57,7 +53,7 @@ pub const ByteVector = extern struct {
 
     pub fn lowerZ(a: ByteVector) Any { return .{ .s = a.s }; }
 
-    pub fn init(length: usize) ByteVector { return .{ .s = guile.scm_c_make_bytevector(length) }; }
+    pub fn make(length: usize) ByteVector { return .{ .s = guile.scm_c_make_bytevector(length) }; }
 
     pub fn nativeEndianness() Symbol { return .{ .s = guile.scm_native_endianness() }; }
     
@@ -79,7 +75,7 @@ pub const ByteVector = extern struct {
         
         switch (C) {
             u8 => return layout.getContentsU8(),
-            else => @compileError("Expected u8 for bytevector contents type")
+            else => return layout.contents(C),
         }
         
         //switch (C) {

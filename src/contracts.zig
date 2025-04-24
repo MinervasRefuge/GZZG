@@ -268,3 +268,23 @@ pub fn WrapAsCFn(FTW: type) type {
         else => @compileError("Not a function: " ++ @typeName(FTW)),
     }
 }
+
+
+pub fn GZZGByteable(comptime Byteable: type, comptime Output: type) type {
+    switch (@typeInfo(Byteable)) { // todo: Finish
+        .array => |arr| { _ = arr; },
+        .pointer => |ptr| {
+            switch (ptr.size) {
+                .one => @compileError("Not a Byte-able sequence from One ptr"),
+                .many,
+                .slice => {},
+                .c => @compileError("Not a Byte-able sequence from C ptr"),
+            }
+
+            
+        },
+        else => @compileError("Not a Byte-able sequence"),
+    }
+    
+    return Output;
+}

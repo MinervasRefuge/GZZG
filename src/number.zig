@@ -511,7 +511,7 @@ pub const Integer = struct {
         const scm = switch (@typeInfo(@TypeOf(n))) {
             .comptime_int,
             .int => Number.from(n),
-            else => @compileError("Not an Integer"),
+            else => @compileError("Not an Integer: " ++ @typeName(@TypeOf(n))),
         };
 
         return .{ .s = scm.s };
@@ -520,7 +520,7 @@ pub const Integer = struct {
     pub fn toZ(a: Integer, comptime T: type) T {
         return switch (@typeInfo(T)) {
             .int => Number.toZ(.{ .s = a.s }, T),
-            else => @compileError("Not an Integer"),
+            else => @compileError("Not an Integer: " ++ @typeName(T)),
         };
     }
 

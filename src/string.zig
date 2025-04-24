@@ -24,7 +24,7 @@ pub const Character = struct {
 
     pub const guile_name = "character";
 
-    //todo: fix to be u21
+    pub inline fn from(a: u21) Character { return fromWideZ(a); }
     pub fn fromWideZ(a: i32) Character { return .{ .s = guile.SCM_MAKE_CHAR(a) }; }
     pub fn fromZ(a: u8) Character { return fromWideZ(@intCast(a)); }
 
@@ -115,7 +115,8 @@ pub const String = struct {
     s: guile.SCM,
 
     pub const guile_name = "string";
-    
+
+    pub inline fn from (s: []const u8)   String { return fromUTF8(s); }
     pub fn fromUTF8    (s: []const u8)   String { return .{ .s = guile.scm_from_utf8_stringn(s.ptr, s.len) }; }
     pub fn fromUTF8CStr(s: [:0]const u8) String { return .{ .s = guile.scm_from_utf8_string(s.ptr) }; }
     pub fn fromListOfCharacters(a: ListOf(Character))        String { return .{ .s = guile.scm_string(a.s) }; }

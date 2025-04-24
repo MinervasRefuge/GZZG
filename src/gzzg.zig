@@ -118,7 +118,8 @@ pub const eqv                     = core.eqv;
 pub const equal                   = core.equal;
 pub const eqZ                     = core.eqZ;
 
-pub const fmt = @import("fmt.zig");
+pub const fmt  = @import("fmt.zig");
+pub const buoy = @import("buoy.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

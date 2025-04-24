@@ -37,7 +37,17 @@ pub const Layout = extern struct {
     };
 
     pub fn getContentsU8(self: *align(8) Self) []u8 {
-        return self.contents[0..self.len] ;
+        return self.contents[0..self.len];
+    }
+
+    pub fn getContents(self: *align(8) Self, comptime C: type) []C {
+        switch (@typeInfo(C)) {
+            .int, .float => {},
+            else => @compileError("Not a number type: " ++ @typeName(C)),
+        }
+
+        // does it check that the lengths are multiples of and length check?
+        return @ptrCast(self.getContentsU8()); 
     }
 
     comptime {
