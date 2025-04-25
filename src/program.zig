@@ -188,15 +188,12 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
         .@"struct" = .{
             .layout = .auto,
             .fields = &fields,
-            .decls = &[_]std.builtin.Type.Declaration{},
+            .decls = &.{},
             .is_tuple = true,
         },
     });
 
     return struct {
-        //todo: use options as guile optional parms
-        //todo: consider implicied type conversion guile.SCM => i32 (other then Number)
-        //todo: return type of tuple as a scm_values returns
         fn wrapper(...) callconv(.c) guile.SCM {
             var args: Args = undefined;
 
@@ -231,40 +228,60 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
             //todo: consider using `.always_inline`?
             const out = @call(.auto, f, args);
 
-            //todo: simplify switch
-            switch (@typeInfo(fi.return_type.?)) {
-                .error_union => |eu| {
-                    if (out) |ok| {
-                        switch (eu.payload) {
-                            void => {
-                                return guile.SCM_UNDEFINED;
-                            },
-                            guile.SCM => {
-                                return ok;
-                            },
-                            else => {
-                                return ok.s; //todo: check that return is a scm wrapper
-                            },
-                        }
-                    } else |err| {
-                        //todo: format error name scm style (eg. dash over camel case)
-                        guile.scm_throw(Symbol.fromUTF8(@errorName(err)).s, List.init(.{}).s);
-                    }
-                },
-                else => {
-                    switch (fi.return_type.?) {
-                        void => {
-                            return guile.SCM_UNDEFINED;
-                        },
-                        guile.SCM => {
-                            return out;
-                        },
-                        else => {
-                            return out.s; //todo: check that return is a scm wrapper
-                        },
-                    }
-                },
-            }
+            return returnOf(fi.return_type.?, out);
         }
     }.wrapper;
+}
+
+/// Allows for the following return types...
+/// - ⍰.s       → Container type
+/// - guile.SCM → direct SCM type
+/// - !⍰        → Guile Exception or ⍰
+/// - ?⍰        → False (#f) or ⍰
+/// - .{ ⍰ }    → Tuples as (values …)
+/// - void      → as undefined return value (default no value)
+inline fn returnOf(comptime T: type, value: anytype) guile.SCM {
+    switch (@typeInfo(T)) {
+        .error_union => |eu| {
+            if (value) |ok| {
+                return returnOf(eu.payload, ok);
+            } else |err| {
+                // todo: format error name scm style (eg. dash over camel case)
+                // cache errorNames 
+                guile.scm_throw(Symbol.fromUTF8(@errorName(err)).s, List.init(.{}).s);
+            }
+        },
+        .optional => |op| {
+            if (value) |some| {
+                return returnOf(op.child, some);
+            } else {
+                return Boolean.falsum.s;
+            }
+        },
+        .pointer => |p| {
+            if (T == guile.SCM) {
+                return value;
+            } else {
+                if (p.size != .one) @compileError("Only handle return types to an pointer to one item");
+
+                return returnOf(p.child, value.*);
+            }
+        },
+        .void => return Any.UNDEFINED.s,
+        .@"struct" => |st| {
+            if (st.is_tuple) {
+                var scms:[st.fields.len]guile.SCM = undefined;
+                inline for (0..st.fields.len) |idx| {
+                    _ = GZZGType(@TypeOf(value[idx]), void);
+                    scms[idx] = value[idx].s;
+                }
+
+                return guile.scm_c_values(&scms, st.fields.len);
+            } else {
+                _ = GZZGType(@TypeOf(value), void);
+                return value.s;
+            }
+        },
+        else => @compileError("Unknown type to return: " ++ @typeName(T)),
+    }
 }

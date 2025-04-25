@@ -405,7 +405,7 @@ pub fn MultiValue(comptime scmTypes: anytype) GZZGTupleOfTypes(scmTypes, type) {
 
         // Note that this looses the typeing
         pub fn fromArray(v: [len]guile.SCM) @This() {
-            return .{ .s = guile.scm_c_values(v.ptr, v.len) };
+            return .{ .s = guile.scm_c_values(&v, len) };
         }
 
         comptime {
