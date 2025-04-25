@@ -5,10 +5,11 @@ const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
-const GZZGType         = gzzg.contracts.GZZGType;
-const GZZGTypes        = gzzg.contracts.GZZGTypes;
-const GZZGTupleOfTypes = gzzg.contracts.GZZGTupleOfTypes;
-const GZZGOptionalType = gzzg.contracts.GZZGOptionalType;
+const GZZGType             = gzzg.contracts.GZZGType;
+const GZZGTypes            = gzzg.contracts.GZZGTypes;
+const GZZGTupleOfTypes     = gzzg.contracts.GZZGTupleOfTypes;
+const GZZGOptionalType     = gzzg.contracts.GZZGOptionalType;
+const GZZGFunctionCallable = gzzg.contracts.GZZGFunctionCallable;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
@@ -99,18 +100,85 @@ pub fn eqZ(a: anytype, b: anytype) GZZGTypes(@TypeOf(.{ a, b }), bool) {
 // todo: Fluids
 // todo: Hooks
 
-// todo: type check t
-pub fn withContinuationBarrier(captures: anytype, comptime t: type) void {
-    const ContinuationBarrierC = struct {
-        fn barrier(data: ?*anyopaque) callconv(.c) ?*anyopaque {
-            t.barrier(@as(*@TypeOf(captures), @alignCast(@ptrCast(data))));
+/// used much like the `@call` function
+/// exceptions do get chomped, though printed to the error port
+/// `Ret` type used as an alternative return type if the function is generic and doesn't return a type.
+/// returns `GuileError` on barrier caught else the `Ret` type
+pub fn withContinuationBarrier(function: anytype, comptime Ret: ?type, args: anytype)
+    error{GuileError}!GZZGFunctionCallable(@TypeOf(function), Ret, @TypeOf(args))
+{
+    const args_ptr, const ArgsPtr = init: switch (@typeInfo(@TypeOf(args))) {
+        .@"struct" => |ist| {
+            if (!ist.is_tuple) @compileError("Expect tuple");
 
-            return guile.SCM_UNDEFINED;
+            break :init .{ &args, @TypeOf(&args) };
+        },
+        .pointer => |iptr| {
+            if (iptr.size != .one) @compileError("Expeced ptr to one thing");
+            switch (@typeInfo(iptr.child)) {
+                .@"struct" => |ipst| {
+                    if (!ipst.is_tuple) @compileError("Expect ptr to tuple");
+
+                    break :init .{ args, @TypeOf(args) };
+                },
+                else => @compileError("Expected ptr to tuple"),
+            }
+        },
+        else => @compileError("Expected ptr to tuple or tuple"),
+    };
+
+    const Return  = @typeInfo(@TypeOf(function)).@"fn".return_type orelse Ret.?;
+    const rules   = comptime std.math.order(@sizeOf(Return), @sizeOf(?*anyopaque));
+    const MaskInt = @Type(.{ .int = .{ .bits = @bitSizeOf(Return), .signedness = .unsigned } });
+    
+    const Barrier = struct {
+        inline fn pack(value: Return) *anyopaque {    
+            return switch (@typeInfo(Return)) {
+                .pointer => @ptrCast(value),
+                else => switch (rules) {
+                    .gt => @compileError("Type too large to return"),
+                    .eq,
+                    .lt => @ptrFromInt(@as(MaskInt, @bitCast(value))),
+                },
+            };
+        }
+        
+        inline fn unpack(value: *anyopaque) Return {
+            return switch (@typeInfo(Return)) {
+                .pointer => @alignCast(@ptrCast(value)),
+                else => @bitCast(@as(MaskInt, @truncate(@intFromPtr(value)))),
+            };
+        }
+        
+        fn barrier(data: ?*anyopaque) callconv(.c) ?*anyopaque {
+            const brr_args: ArgsPtr = @alignCast(@ptrCast(data.?));
+            const brr_out = @call(.always_inline, function, brr_args.*);
+
+            // the only place you can check generic function return types;
+            comptime std.debug.assert(@TypeOf(brr_out) == Return);
+
+            // return some value to be able to check if barrier return safely
+            if (Return == void) {
+                return @ptrFromInt(@intFromBool(true));
+            } else {
+                return pack(brr_out);
+            }
         }
     };
 
-    //todo: check for null on exception and how exception should be handled
-    _ = guile.scm_c_with_continuation_barrier(ContinuationBarrierC.barrier, @constCast(@ptrCast(&captures)));
+    // args must be a pointer to the args passed to ff
+    // return type must be a type equal to or smaller than a pointer.
+
+    const out_ptr = guile.scm_c_with_continuation_barrier(
+        Barrier.barrier,
+        @constCast(@ptrCast(args_ptr))
+    );
+
+    if (Return == void) {
+        return if (out_ptr) {} else error.GuileError;
+    } else {
+        return if (out_ptr) |ptr| Barrier.unpack(ptr) else error.GuileError;
+    }
 }
 
 pub fn newline() void {

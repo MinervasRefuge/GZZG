@@ -288,3 +288,19 @@ pub fn GZZGByteable(comptime Byteable: type, comptime Output: type) type {
     
     return Output;
 }
+
+pub fn GZZGFunctionCallable(comptime Function: type, comptime Returns: ?type, comptime Args: type) type {
+    const info_function = @typeInfo(Function).@"fn";
+    const info_args = @typeInfo(Args).@"struct";
+
+    std.debug.assert(info_args.is_tuple);
+
+    for (info_function.params, info_args.fields) |param, field| {
+        if (param.is_generic) continue;
+
+        _ = @TypeOf(field.type, param.type.?);
+    }
+    
+    return (info_function.return_type orelse Returns)
+        orelse @compileError("expected return type, function is generic and the return type wasn't specified");
+}
