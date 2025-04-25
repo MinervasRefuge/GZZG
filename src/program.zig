@@ -50,17 +50,30 @@ pub const Procedure = struct {
     //                               Primitive Procedures §6.7.2
     //                               ---------------------------
 
-    pub fn define(fn_name: [:0]const u8, comptime ff: anytype, fn_documentation: ?[:0]const u8, @"export": bool) GZZGFn(@TypeOf(ff), Procedure) {
+    pub fn define(fn_name: [:0]const u8,
+                  comptime ff: anytype,
+                  fn_documentation: ?[:0]const u8,
+                  @"export": bool)
+        GZZGFn(@TypeOf(ff), Procedure)
+    {
         const ft = @typeInfo(@TypeOf(ff)).@"fn";
 
         if (ft.params.len > guile.SCM_GSUBR_MAX)
-            @compileError(std.fmt.comptimePrint("Fn exceeds max parameter length of: {d}", .{guile.SCM_GSUBR_MAX}));
+            @compileError(std.fmt.comptimePrint(
+                "Fn exceeds max parameter length of: {d}",
+                .{guile.SCM_GSUBR_MAX}
+        ));
 
-        const gp = guile.scm_c_define_gsubr(fn_name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(wrapZig(ff))));
+        const gp = guile.scm_c_define_gsubr(fn_name.ptr, ft.params.len, 0, 0, @constCast(&wrapZig(ff)));
 
-        //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
+        // todo: consider adding @src() details (is there a nice way to do it as @src() refers to
+        //       the current location)
         if (fn_documentation) |docs| {
-            _ = guile.scm_set_procedure_property_x(gp, Symbols.get("documentation").s, String.fromUTF8(docs).s);
+            _ = guile.scm_set_procedure_property_x(
+                gp,
+                Symbols.get("documentation").s,
+                String.fromUTF8(docs).s
+            );
         }
 
         if (@"export") {
@@ -70,17 +83,30 @@ pub const Procedure = struct {
         return .{ .s = gp };
     }
     
-    pub fn defineC(fn_name: [:0]const u8, comptime ff: anytype, fn_documentation: ?[:0]const u8, @"export": bool) GZZGFnC(@TypeOf(ff), Procedure) {
+    pub fn defineC(fn_name: [:0]const u8,
+                   comptime ff: anytype,
+                   fn_documentation: ?[:0]const u8,
+                   @"export": bool)
+        GZZGFnC(@TypeOf(ff), Procedure)
+    {
         const ft = @typeInfo(@TypeOf(ff)).@"fn";
 
         if (ft.params.len > guile.SCM_GSUBR_MAX)
-            @compileError(std.fmt.comptimePrint("Fn exceeds max parameter length of: {d}", .{guile.SCM_GSUBR_MAX}));
+            @compileError(std.fmt.comptimePrint(
+                "Fn exceeds max parameter length of: {d}",
+                .{guile.SCM_GSUBR_MAX}
+        ));
 
-        const gp = guile.scm_c_define_gsubr(fn_name.ptr, ft.params.len, 0, 0, @constCast(@ptrCast(&ff)));
+        const gp = guile.scm_c_define_gsubr(fn_name.ptr, ft.params.len, 0, 0, @constCast(&ff));
 
-        //todo: consider adding @src() details (is there a nice way to do it as @src() refers to the current location)
+        // todo: consider adding @src() details (is there a nice way to do it as @src() refers to
+        //       the current location)
         if (fn_documentation) |docs| {
-            _ = guile.scm_set_procedure_property_x(gp, Symbols.get("documentation").s, String.fromUTF8(docs).s);
+            _ = guile.scm_set_procedure_property_x(
+                gp,
+                Symbols.get("documentation").s,
+                String.fromUTF8(docs).s
+            );
         }
 
         if (@"export") {
@@ -90,7 +116,9 @@ pub const Procedure = struct {
         return .{ .s = gp };
     }
 
-    pub fn defineBulk(comptime fn_outlines: anytype) GZZGFns(@TypeOf(fn_outlines), [fn_outlines.len]Procedure) {
+    pub fn defineBulk(comptime fn_outlines: anytype)
+        GZZGFns(@TypeOf(fn_outlines), [fn_outlines.len]Procedure)
+    {
         var out: [fn_outlines.len]Procedure = undefined;
 
         //todo: check name exists?
@@ -168,16 +196,14 @@ pub fn ThunkOf(T: type) GZZGType(T, type) {
     };
 }
 
-fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM) {
-    const fi = @typeInfo(@TypeOf(f)).@"fn";
+fn wrapZig(function: anytype) GZZGFn(@TypeOf(function), fn (...) callconv(.c) guile.SCM) {
+    const info_function = @typeInfo(@TypeOf(function)).@"fn";
+    comptime var fields: [info_function.params.len]std.builtin.Type.StructField = undefined;
 
-    //todo: is there a better way of building a tuple for the `@call`?
-    comptime var fields: [fi.params.len]std.builtin.Type.StructField = undefined;
-
-    inline for (fi.params, 0..) |p, i| {
-        fields[i] = std.builtin.Type.StructField{
+    inline for (info_function.params, 0..) |params, i| {
+        fields[i] = .{
             .name = std.fmt.comptimePrint("{d}", .{i}),
-            .type = p.type.?, // optional for anytype?
+            .type = params.type.?,
             .default_value_ptr = null,
             .is_comptime = false,
             .alignment = 0
@@ -196,13 +222,12 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
     return struct {
         fn wrapper(...) callconv(.c) guile.SCM {
             var args: Args = undefined;
-
             {
                 var varg = @cVaStart();
                 defer @cVaEnd(&varg);
 
-                inline for (fi.params, 0..) |p, i| {
-                    const pt = p.type.?;
+                inline for (fields, 0..) |field, i| {
+                    const pt = field.type;
                     const sva = @cVaArg(&varg, guile.SCM);
 
                     if (@hasDecl(pt, "isZ")) { // Common wrapped types
@@ -210,25 +235,27 @@ fn wrapZig(f: anytype) GZZGFn(@TypeOf(f), *const fn (...) callconv(.c) guile.SCM
                             args[i] = .{ .s = sva };
                         } else {
                             //todo: We can throw a better exception here...
-                            guile.scm_throw(Procedure.Symbols.get("type-parameter").s, List.init(.{ String.fromUTF8(std.fmt.comptimePrint("Not a {s} at index {d}", .{ @typeName(pt), i })), Any{ .s = sva } }).s);
+                            guile.scm_throw(
+                                Procedure.Symbols.get("type-parameter").s,
+                                List.init(.{
+                                    String.fromUTF8(std.fmt.comptimePrint(
+                                        "Not a {s} at index {d}",
+                                        .{ @typeName(pt), i })).lowerZ(),
+                                    Any{ .s = sva }
+                                }).s
+                            );
                         }
-                    } else if (@hasDecl(pt, "assert")) { // Foreign Types
-                        pt.assert(sva); // todo: fix, defer may not be run if the assert triggers
-                        args[i] = .{ .s = sva };
-                    } else if (p.type.? == guile.SCM) {
+                    } else if (pt == guile.SCM) {
                         args[i] = sva;
                     } else {
-                        @compileError("Unknown parm type for guile wrapper function: " ++
-                            @typeName(pt) ++
-                            " Did you forget to make `pub` for `usingnamespace gzzg.SetupFT`?");
+                        @compileError("Unknown parm type for wrapper function: " ++ @typeName(pt));
                     }
                 }
             }
 
-            //todo: consider using `.always_inline`?
-            const out = @call(.auto, f, args);
+            const out = @call(.always_inline, function, args);
 
-            return returnOf(fi.return_type.?, out);
+            return returnOf(@TypeOf(out), out);
         }
     }.wrapper;
 }
