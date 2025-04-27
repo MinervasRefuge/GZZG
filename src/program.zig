@@ -219,6 +219,8 @@ fn wrapZig(function: anytype) GZZGFn(@TypeOf(function), fn (...) callconv(.c) gu
         },
     });
 
+    //const Args = std.meta.ArgsTuple(@TypeOf(function));
+
     return struct {
         fn wrapper(...) callconv(.c) guile.SCM {
             var args: Args = undefined;

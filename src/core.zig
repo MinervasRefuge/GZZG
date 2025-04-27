@@ -193,7 +193,7 @@ pub fn newlineErr() void {
     _ = guile.scm_newline(Port.current.@"error"().s);
 }
 
-pub fn displayErr(a: anytype) GZZGTypes(@TypeOf(a), void) {
+pub fn displayErr(a: anytype) GZZGType(@TypeOf(a), void) {
     _ = guile.scm_display(a.s, Port.current.@"error"().s);
 }
 

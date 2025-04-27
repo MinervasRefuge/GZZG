@@ -113,8 +113,20 @@ pub fn ForeignObjectOf(
 
         switch (@typeInfo(Slot)) {
             .@"struct" => |st| {
-                if (st.fields.len != 1 or std.meta.activeTag(@typeInfo(st.fields[0].type)) != .pointer)
-                    @compileError("On '"++slot++"', unsuported type: " ++ @typeName(Slot));
+                
+                if (st.fields.len != 1)
+                    @compileError("On '"++slot++"', unsuported type: " ++ @typeName(Slot) ++ " due to multiple members");
+
+                switch (@typeInfo(st.fields[0].type)) {
+                    .pointer => {},
+                    .optional => |o| {
+                        if (std.meta.activeTag(@typeInfo(o.child)) != .pointer) {
+                            @compileError("On '"++slot++"', unsuported type: " ++ @typeName(Slot) + " not a pointer");
+                        }
+                    },
+                    else => @compileError("On '"++slot++"', unsuported type: " ++ @typeName(Slot)),
+                }
+                
             },
             .@"pointer" => {},
             else => @compileError("Unsupported type on slot '"++slot++"' for T: " ++ @typeName(T)),
@@ -141,15 +153,15 @@ pub fn ForeignObjectOf(
     const SlotEnum = SlotsToEnum(declared_slots);
 
     return extern struct {
-        var slots: [declared_slots.len] Symbol = undefined;
-        var foreign: Identity = undefined;
+        pub var slots: [declared_slots.len] Symbol = undefined;
+        pub var foreign: Identity = undefined;
         s: guile.SCM,
 
         pub const guile_name = "foreign-type:" ++ name; //maybe?
         
         pub fn is (a: guile.SCM) Boolean {
             _ = a;
-            return Boolean.TRUE;
+            return Boolean.verum;
             //@panic("Unimplemented");
         }
         pub fn isZ(a: guile.SCM) bool { return is(a).toZ(); }

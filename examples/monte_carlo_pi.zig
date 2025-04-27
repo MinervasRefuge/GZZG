@@ -150,8 +150,6 @@ pub fn main() !void {
 
 var xout: std.Thread.Mutex = .{};
 
-//todo: consider a ~gzzg.fmt~ tool
-
 fn threadResult1(samples: usize) void {
     gzzg.initThreadForGuile();
     const gmonte_carlo_pi = gzzg.eval(guile_monte_carlo_pi, null).raiseZ(Procedure).?;
