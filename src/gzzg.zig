@@ -31,7 +31,8 @@ pub const ByteVector = @import("byte_vector.zig").ByteVector;
 //Arrays
 //VLists
 //Records
-//Structures
+const Struct     = @import("struct.zig").Struct; // Not ready for use.
+const VTable     = @import("struct.zig").VTable; // Not ready for use.
 //Association Lists
 //VHashs
 pub const HashTableOf = @import("hash_table.zig").HashTableOf;
@@ -76,17 +77,9 @@ const Frame = @import("vm.zig").Frame;
 //                                         Arrays §6.6.13
 //                                         --------------
 
-//                                          -------------
-//                                          VList §6.6.14
-//                                          -------------
-
 //                                --------------------------------
 //                                Record §6.6.15, §6.6.16, §6.6.17
 //                                --------------------------------
-
-//                                        -----------------
-//                                        Structure §6.6.18
-//                                        -----------------
 
 //                                          -------------
 //                                          VHash §6.6.21

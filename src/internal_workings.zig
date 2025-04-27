@@ -17,16 +17,56 @@ pub fn gSCMtoIWSCM(s: guile.SCM) SCM {
     return @alignCast(@ptrCast(s));
 }
 
+// delete
 pub fn getSCMFrom(int_ptr: usize) SCM {
     @setRuntimeSafety(false);
 
     return @alignCast(@as(SCM, @ptrFromInt(int_ptr)));
 }
 
-pub fn getSCMCell(s: SCM, i: usize) SCM {
+// rename to getCell
+pub fn getSCMCell(s: SCM, i: usize) SCM { // what about unpacking the ptr before deref
     @setRuntimeSafety(false);
 
     return @alignCast(@as(SCM, @ptrFromInt(s[i])));
+}
+
+// delete
+pub fn unpackPtr(ptr: usize) SCM {
+    return @alignCast(@as(SCM, @ptrFromInt(ptr & ~@as(usize, @intCast(0b111)))));
+}
+
+pub fn untagPtr(s: *anyopaque) *align(8) anyopaque {
+    const tc3_mask: usize = std.math.maxInt(std.meta.Tag(TC3)); 
+    return @ptrFromInt(@intFromPtr(s) & ~tc3_mask);
+}
+
+pub fn untagSCM(s: SCM) SCM {
+    return @ptrCast(untagPtr(s));
+}
+
+pub fn tagPtr(s: *align(8) anyopaque, tc3: TC3) *anyopaque {
+    return @ptrFromInt(@intFromPtr(s) | @intFromEnum(tc3));
+}
+
+pub fn tagSCM(s: SCM, tc3: TC3) SCM {
+    @setRuntimeSafety(false);
+    return @alignCast(@ptrCast(tagPtr(s, tc3)));
+}
+
+/// returns a ptr to a struct containing an `untag` fn returning *align(8) T
+pub fn TaggedPtr(T: type) type {
+    return *struct {
+        pub fn untag(self: *@This()) *align(8) T {
+            return @ptrCast(untagPtr(self));
+        }
+
+        pub fn toSCM(self: *@This()) SCM {
+            @setRuntimeSafety(false);
+
+            return @alignCast(@ptrCast(self));
+        }
+    };
 }
 
 comptime {
@@ -196,16 +236,14 @@ pub fn getTCFor(TC: type, scm: SCM) TC {
     return @enumFromInt(@as(etc.tag_type, @truncate(@intFromPtr(scm))));
 }
 
-pub fn unpackPtr(ptr: usize) SCM {
-    return @alignCast(@as(SCM, @ptrFromInt(ptr & ~@as(usize, @intCast(0b111)))));
-}
+
 
 pub const GuileClassification = enum {
     array,        
     atomic_box,   
     bit_vector,        
     byte_vector,   
-    charator,
+    character,
     dynamic_state,
     flags,
     fluid,        
@@ -220,6 +258,7 @@ pub const GuileClassification = enum {
     special_object,
     string,              
     stringbuf,
+    @"struct",
     symbol,       
     syntax,       
     values,       
@@ -234,35 +273,44 @@ pub const GuileClassification = enum {
         if (getTCFor(TC2, a) == .small_integer) return .number;
         
         switch (getTCFor(TC3, a)) {
-            .cons => return switch (getTCFor(TC7, getSCMCell(a, 0))) {
-                .symbol        => .symbol,     
-                .variable      => .variable,
-                .vector        => .vector,       
-                .wvect         => .weak_vector,        
-                .string        => .string,       
-                .number        => .number,       
-                .hashtable     => .hashtable,    
-                .pointer       => .pointer,
-                .fluid         => .fluid,
-                .stringbuf     => .stringbuf,
-                .dynamic_state => .dynamic_state,
-                .frame         => .frame,
-                .keyword       => .keyword,
-                .atomic_box    => .atomic_box,
-                .syntax        => .syntax,
-                .values        => .values,
-                .program       => .program,
-                .vm_cont       => .vm_continuation,
-                .bytevector    => .byte_vector,
-                .weak_set      => .weak_set,
-                .weak_table    => .weak_table,
-                .array         => .array,
-                .bitvector     => .bit_vector,
-                .smob          => .smob,
-                .port          => .port,
-                else => @panic("Unknown heap type")
-            },      
-            .@"struct" => @panic("Shouldn't exist"), 
+            .cons => {
+                const cell0 = getSCMCell(a, 0);
+
+                switch(getTCFor(TC3, cell0)) {
+                    .@"struct" => return .@"struct",
+                    .tc7,
+                    .tc7_2 => return switch (getTCFor(TC7, cell0)) {
+                        .symbol        => .symbol,     
+                        .variable      => .variable,
+                        .vector        => .vector,       
+                        .wvect         => .weak_vector,        
+                        .string        => .string,       
+                        .number        => .number,       
+                        .hashtable     => .hashtable,    
+                        .pointer       => .pointer,
+                        .fluid         => .fluid,
+                        .stringbuf     => .stringbuf,
+                        .dynamic_state => .dynamic_state,
+                        .frame         => .frame,
+                        .keyword       => .keyword,
+                        .atomic_box    => .atomic_box,
+                        .syntax        => .syntax,
+                        .values        => .values,
+                        .program       => .program,
+                        .vm_cont       => .vm_continuation,
+                        .bytevector    => .byte_vector,
+                        .weak_set      => .weak_set,
+                        .weak_table    => .weak_table,
+                        .array         => .array,
+                        .bitvector     => .bit_vector,
+                        .smob          => .smob,
+                        .port          => .port,
+                        else => @panic("Unknown heap type")
+                    },
+                    else => @panic("Unreachable type?"),
+                }
+            },
+            .@"struct" => return .@"struct", // or probably a vtable
             // int1,      
             .unused => @panic("Shouldn't exist"),     
             .imm24 => {
@@ -277,6 +325,37 @@ pub const GuileClassification = enum {
             // tc7_2,
             else => unreachable
         }
+    }
+};
+
+pub const SCMDebugHint = struct {
+    s: *anyopaque,
+
+     pub fn format(v: @This(), comptime fmt: []const u8,
+                   options: std.fmt.FormatOptions, writer: anytype) !void {
+         _ = options;
+         _ = fmt;
+
+         const max = comptime init: {
+             var lavg = 0;
+             for (std.meta.fieldNames(GuileClassification)) |field_name| {
+                 lavg += field_name.len;
+             }
+
+             break :init @divFloor(lavg, std.meta.fieldNames(GuileClassification).len);          
+         };
+
+         const classification = GuileClassification.classify(getSCMFrom(@intFromPtr(v.s)));
+
+         const cPrint = std.fmt.comptimePrint;
+         const fmt_cname = cPrint("{{s: >{d}}}", .{max});
+         const fmt_ptr   = cPrint("{{X:0>{d}}}", .{ @sizeOf(*anyopaque) * 2 });
+         const fmt_disp  = cPrint("<{s}@{s}>", .{ fmt_cname, fmt_ptr });
+         
+         try std.fmt.format(writer, fmt_disp, .{
+             @tagName(classification),
+             @intFromPtr(v.s),
+         });
     }
 };
 
@@ -345,6 +424,7 @@ pub fn Padding(size: comptime_int) type {
 pub const hash        = @import("internal_workings/hash.zig");
 pub const string      = @import("internal_workings/string.zig");
 pub const byte_vector = @import("internal_workings/byte_vector.zig");
+pub const @"struct"   = @import("internal_workings/struct.zig");
 
 pub const bytecode = @import("internal_workings/bytecode.zig");
 
