@@ -8,63 +8,58 @@ const std   = @import("std");
 const guile = @import("gzzg.zig").guile;
 const bopts = @import("build_options");
 
-pub const SCM     = [*]align(8) usize; // libguile/scm.h:228
-pub const SCMBits = usize;
+/// represents a tagged ptr item.
+pub const SCM      = *anyopaque; // libguile/scm.h:228
+/// represents an untagged ptr to cells
+pub const SCMCells = [*]align(8) SCM;
+pub const SCMBits  = usize;
 
-pub fn gSCMtoIWSCM(s: guile.SCM) SCM {
-    @setRuntimeSafety(false);
-
-    return @alignCast(@ptrCast(s));
+pub fn assertSCM(comptime Maybe: type) void {
+    switch (Maybe) {
+        guile.SCM,
+        SCMCells,
+        SCM => {},
+        else => @compileError("Not A SCM type: " ++ @typeName(Maybe)),
+    }
 }
 
-// delete
-pub fn getSCMFrom(int_ptr: usize) SCM {
-    @setRuntimeSafety(false);
-
-    return @alignCast(@as(SCM, @ptrFromInt(int_ptr)));
+// needed as `*align(⍰) ⍰` can become `*anyopaque`
+pub fn assertTagged(comptime Maybe: type) void {
+    switch (Maybe) {
+        guile.SCM,
+        SCM => {},
+        else => @compileError("Not a tagged SCM type: " ++ @typeName(Maybe)),
+    }
 }
 
-// rename to getCell
-pub fn getSCMCell(s: SCM, i: usize) SCM { // what about unpacking the ptr before deref
-    @setRuntimeSafety(false);
+// fn assertUntagged(comptime Maybe: type) void {
+//     switch (Maybe) {
+//         guile.SCM,
+//         SCMCells => {},
+//         else => @compileError("Not an untagged SCM type: " ++ @typeName(Maybe)),
+//     }
+// }
 
-    return @alignCast(@as(SCM, @ptrFromInt(s[i])));
-}
-
-// delete
-pub fn unpackPtr(ptr: usize) SCM {
-    return @alignCast(@as(SCM, @ptrFromInt(ptr & ~@as(usize, @intCast(0b111)))));
-}
-
-pub fn untagPtr(s: *anyopaque) *align(8) anyopaque {
+pub fn untagSCM(s: anytype) SCMCells {
+    assertTagged(@TypeOf(s));
     const tc3_mask: usize = std.math.maxInt(std.meta.Tag(TC3)); 
     return @ptrFromInt(@intFromPtr(s) & ~tc3_mask);
 }
 
-pub fn untagSCM(s: SCM) SCM {
-    return @ptrCast(untagPtr(s));
-}
-
-pub fn tagPtr(s: *align(8) anyopaque, tc3: TC3) *anyopaque {
+pub fn tagSCM(s: SCMCells, tc3: TC3) SCM {
     return @ptrFromInt(@intFromPtr(s) | @intFromEnum(tc3));
-}
-
-pub fn tagSCM(s: SCM, tc3: TC3) SCM {
-    @setRuntimeSafety(false);
-    return @alignCast(@ptrCast(tagPtr(s, tc3)));
 }
 
 /// returns a ptr to a struct containing an `untag` fn returning *align(8) T
 pub fn TaggedPtr(T: type) type {
     return *struct {
         pub fn untag(self: *@This()) *align(8) T {
-            return @ptrCast(untagPtr(self));
+            const s: SCM = @ptrCast(self);
+            return @ptrCast(untagSCM(s));
         }
 
-        pub fn toSCM(self: *@This()) SCM {
-            @setRuntimeSafety(false);
-
-            return @alignCast(@ptrCast(self));
+        pub fn scm(self: *@This()) SCM {
+            return @ptrCast(self);
         }
     };
 }
@@ -86,12 +81,23 @@ comptime {
     assert(@sizeOf(SCM) <= @sizeOf(*anyopaque));
 }
 
-pub fn isImmediate(scm: SCM) bool {
+pub fn isImmediate(scm: anytype) bool {
+    assertTagged(@TypeOf(scm));
     return @intFromPtr(scm) & 0b110 != 0;
 }
 
-
+//
 // TC => Type Code <n> (stored in the /n/ least significant bits)
+
+fn checkTagValues(comptime E: type, comptime index: anytype) void {
+    // check that the enum value match the value specified by guile.
+    
+    for (index) |entry| {
+        if (@field(guile, @tagName(entry[0])) != @intFromEnum(@field(E, @tagName(entry[1])))) {
+            @compileError("tag value wrong: " ++ @tagName(entry[0]));
+        }
+    }
+}
 
 pub const TC1 = enum (u1) {
     scm_object,
@@ -105,7 +111,7 @@ pub const TC2 = enum (u2) {
     invalid2
 };
 
-const TC3Raw = enum(u3) {
+pub const TC3 = enum(u3) {
     cons,      // 0b000: heap obj
     @"struct", // 0b001: struct / class instance
     int1,      // 0b010: small ints - even
@@ -114,23 +120,22 @@ const TC3Raw = enum(u3) {
     tc7,       // 0b101: heap types 1: TC7
     int2,      // 0b110: small ints - odd
     tc7_2,     // 0b111: heap types 2: TC7
+
+    comptime {
+        checkTagValues(@This(), .{
+            .{ .scm_tc3_cons,   .cons      },
+            .{ .scm_tc3_struct, .@"struct" },
+            .{ .scm_tc3_int_1,  .int1      },
+            .{ .scm_tc3_unused, .unused    },  
+            .{ .scm_tc3_imm24,  .imm24     },
+            .{ .scm_tc3_tc7_1,  .tc7       },
+            .{ .scm_tc3_int_2,  .int2      },
+            .{ .scm_tc3_tc7_2,  .tc7_2     },
+        });
+    }
 };
 
-const TC3Guile = enum(u3) {
-    cons      = guile.scm_tc3_cons,    
-    @"struct" = guile.scm_tc3_struct,
-    int1      = guile.scm_tc3_int_1,   
-    unused    = guile.scm_tc3_unused,
-    imm24     = guile.scm_tc3_imm24,   
-    tc7       = guile.scm_tc3_tc7_1,   
-    int2      = guile.scm_tc3_int_2,   
-    tc7_2     = guile.scm_tc3_tc7_2,   
-};
-
-pub const TC3 = if (bopts.trust_iw_consts) TC3Raw else TC3Guile;
-
-
-const TC7Raw = enum(u7) {
+pub const TC7 = enum(u7) {
     symbol        = 0b0000_101, // 0x05 
     variable      = 0b0000_111, // 0x07
     vector        = 0b0001_101, // 0x0d
@@ -163,80 +168,73 @@ const TC7Raw = enum(u7) {
     smob          = 0b1110_111, // 0x77
     port          = 0b1111_101, // 0x7d
     unused_7f     = 0b1111_111, // 0x7f
-    _,
-};
+    //_,
 
-const TC7Guile = enum(u7) {
-    symbol        =  guile.scm_tc7_symbol,          
-    variable      =  guile.scm_tc7_variable,     
-    vector        =  guile.scm_tc7_vector,          
-    wvect         =  guile.scm_tc7_wvect,           
-    string        =  guile.scm_tc7_string,          
-    number        =  guile.scm_tc7_number,          
-    hashtable     =  guile.scm_tc7_hashtable,       
-    pointer       =  guile.scm_tc7_pointer,         
-    fluid         =  guile.scm_tc7_fluid,           
-    stringbuf     =  guile.scm_tc7_stringbuf,    
-    dynamic_state =  guile.scm_tc7_dynamic_state,
-    frame         =  guile.scm_tc7_frame,           
-    keyword       =  guile.scm_tc7_keyword,         
-    atomic_box    =  guile.scm_tc7_atomic_box,      
-    syntax        =  guile.scm_tc7_syntax,          
-    values        =  guile.scm_tc7_values,          
-    program       =  guile.scm_tc7_program,         
-    vm_cont       =  guile.scm_tc7_vm_cont,         
-    bytevector    =  guile.scm_tc7_bytevector,      
-    unused_4f     =  guile.scm_tc7_unused_4f,       
-    weak_set      =  guile.scm_tc7_weak_set,        
-    weak_table    =  guile.scm_tc7_weak_table,      
-    array         =  guile.scm_tc7_array,           
-    bitvector     =  guile.scm_tc7_bitvector,       
-    unused_65     =  guile.scm_tc7_unused_65,       
-    unused_67     =  guile.scm_tc7_unused_67,       
-    unused_6d     =  guile.scm_tc7_unused_6d,       
-    unused_6f     =  guile.scm_tc7_unused_6f,       
-    unused_75     =  guile.scm_tc7_unused_75,       
-    smob          =  guile.scm_tc7_smob,            
-    port          =  guile.scm_tc7_port,            
-    unused_7f     =  guile.scm_tc7_unused_7f,       
-    _,    
+    comptime {
+        checkTagValues(@This(), .{
+            .{ .scm_tc7_symbol,        .symbol        },
+            .{ .scm_tc7_variable,      .variable      },
+            .{ .scm_tc7_vector,        .vector        },
+            .{ .scm_tc7_wvect,         .wvect         },
+            .{ .scm_tc7_string,        .string        },
+            .{ .scm_tc7_number,        .number        },
+            .{ .scm_tc7_hashtable,     .hashtable     },
+            .{ .scm_tc7_pointer,       .pointer       },
+            .{ .scm_tc7_fluid,         .fluid         },
+            .{ .scm_tc7_stringbuf,     .stringbuf     },
+            .{ .scm_tc7_dynamic_state, .dynamic_state },
+            .{ .scm_tc7_frame,         .frame         },
+            .{ .scm_tc7_keyword,       .keyword       },
+            .{ .scm_tc7_atomic_box,    .atomic_box    },
+            .{ .scm_tc7_syntax,        .syntax        },
+            .{ .scm_tc7_values,        .values        },
+            .{ .scm_tc7_program,       .program       },
+            .{ .scm_tc7_vm_cont,       .vm_cont       },
+            .{ .scm_tc7_bytevector,    .bytevector    },
+            .{ .scm_tc7_unused_4f,     .unused_4f     },
+            .{ .scm_tc7_weak_set,      .weak_set      },
+            .{ .scm_tc7_weak_table,    .weak_table    },
+            .{ .scm_tc7_array,         .array         },
+            .{ .scm_tc7_bitvector,     .bitvector     },
+            .{ .scm_tc7_unused_65,     .unused_65     },
+            .{ .scm_tc7_unused_67,     .unused_67     },
+            .{ .scm_tc7_unused_6d,     .unused_6d     },
+            .{ .scm_tc7_unused_6f,     .unused_6f     },
+            .{ .scm_tc7_unused_75,     .unused_75     },
+            .{ .scm_tc7_smob,          .smob          },
+            .{ .scm_tc7_port,          .port          },
+            .{ .scm_tc7_unused_7f,     .unused_7f     },
+        });
+    }
 };
-
-pub const TC7 = if (bopts.trust_iw_consts) TC7Raw else TC7Guile;
 
 // immediates other than fixnums
-const TC8Raw  = enum (u8) {
+pub const TC8  = enum (u8) {
     special_objects = 0b00000_100,
     characters      = 0b00001_100,
-    unused1         = 0b00010_100,
-    unused2         = 0b00011_100,
+    unused0         = 0b00010_100,
+    unused1         = 0b00011_100,
     _,
-};
 
-const TC8Guile  = enum (u8) {
-    special_objects = guile.scm_tc8_flag,
-    characters      = guile.scm_tc8_char,
-    unused1         = guile.scm_tc8_unused_0, 
-    unused2         = guile.scm_tc8_unused_1, 
-    _,
+     comptime {
+         checkTagValues(@This(), .{
+             .{ .scm_tc8_flag,     .special_objects },
+             .{ .scm_tc8_char,     .characters      },
+             .{ .scm_tc8_unused_0, .unused0         },
+             .{ .scm_tc8_unused_1, .unused1         },
+         });
+    }
 };
-
-pub const TC8 = if (bopts.trust_iw_consts) TC8Raw else TC8Guile;
 
 //pub const TC16 = enum (u16) { //tc16 (for tc7==scm_tc7_smob):
 //    _,
 //};
 
-pub fn getTCFor(TC: type, scm: SCM) TC {
-    const etc = switch (@typeInfo(TC)) {
-        .@"enum" => |e| e,
-        else => @compileError("Expected enum"),
-    };
-        
-    return @enumFromInt(@as(etc.tag_type, @truncate(@intFromPtr(scm))));
+pub fn getTCFor(comptime TC: type, scm: anytype) TC {
+    assertTagged(@TypeOf(scm));
+    const info = @typeInfo(TC).@"enum";
+    return @enumFromInt(@as(info.tag_type, @truncate(@intFromPtr(scm))));
 }
-
-
 
 pub const GuileClassification = enum {
     array,        
@@ -269,12 +267,14 @@ pub const GuileClassification = enum {
     weak_table,   
     weak_vector,
     
-    pub fn classify(a: SCM) GuileClassification {
+    pub fn classify(a: anytype) GuileClassification {
+        assertTagged(@TypeOf(a));
+        
         if (getTCFor(TC2, a) == .small_integer) return .number;
         
         switch (getTCFor(TC3, a)) {
             .cons => {
-                const cell0 = getSCMCell(a, 0);
+                const cell0 = untagSCM(a)[0];
 
                 switch(getTCFor(TC3, cell0)) {
                     .@"struct" => return .@"struct",
@@ -328,8 +328,8 @@ pub const GuileClassification = enum {
     }
 };
 
-pub const SCMDebugHint = struct {
-    s: *anyopaque,
+pub const DebugHint = struct {
+    s: SCM,
 
      pub fn format(v: @This(), comptime fmt: []const u8,
                    options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -345,17 +345,23 @@ pub const SCMDebugHint = struct {
              break :init @divFloor(lavg, std.meta.fieldNames(GuileClassification).len);          
          };
 
-         const classification = GuileClassification.classify(getSCMFrom(@intFromPtr(v.s)));
+         const classification = GuileClassification.classify(v.s);
 
          const cPrint = std.fmt.comptimePrint;
          const fmt_cname = cPrint("{{s: >{d}}}", .{max});
-         const fmt_ptr   = cPrint("{{X:0>{d}}}", .{ @sizeOf(*anyopaque) * 2 });
-         const fmt_disp  = cPrint("<{s}@{s}>", .{ fmt_cname, fmt_ptr });
+         const fmt_ptr   = cPrint("{{X:0>{d}}}", .{@sizeOf(*anyopaque) * 2});
+         const fmt_disp  = cPrint("<{s}@{s}>", .{fmt_cname, fmt_ptr});
          
          try std.fmt.format(writer, fmt_disp, .{
              @tagName(classification),
              @intFromPtr(v.s),
          });
+    }
+
+    pub fn from(scm: anytype) @This() {
+        assertTagged(@TypeOf(scm));
+
+        return .{ .s = scm };
     }
 };
 
@@ -363,33 +369,26 @@ pub const SCMDebugHint = struct {
 //
 //
 
+//
 // §7.6.2.21 (rnrs arithmetic fixnums) naming
-pub const FixNum = @Type(.{ .int = .{
-    .signedness = .signed,
-    .bits = @typeInfo(isize).int.bits - 2,
-} });
+pub const FixNum = std.meta.Int(.signed, @bitSizeOf(isize) - @bitSizeOf(TC2));
+const UFixNum = std.meta.Int(.unsigned, @bitSizeOf(usize) - @bitSizeOf(TC2)); // used in internal casting
 
-// used in internal casting
-const UFixNum = @Type(.{ .int = .{
-    .signedness = .unsigned,
-    .bits = @typeInfo(usize).int.bits - 2,
-} });
-
-pub fn isFixNum(scm: SCM) bool {
+pub fn isFixNum(scm: anytype) bool {
+    assertTagged(@TypeOf(scm));
     return getTCFor(TC2, scm) == .small_integer;
 }
  
-pub fn getFixNum(scm: SCM) FixNum {
-    @setRuntimeSafety(false);
-    return @bitCast(@as(UFixNum, @intCast(@intFromPtr(scm) >> 2)));
+pub fn getFixNum(scm: anytype) FixNum {
+    // which on?
+    assertTagged(@TypeOf(scm)); // assertSCM(@TypeOf(scm));
+    return @bitCast(@as(UFixNum, @truncate(@intFromPtr(scm) >> @bitSizeOf(TC2))));
 }
 
-pub fn makeFixNum(i: FixNum) SCM {
-    // Immediates aren't ptrs and don't have a ptr aligned as expect.
-    @setRuntimeSafety(false);
-    
-    const unum: usize = @intCast(@as(UFixNum, @bitCast(i)));
-    const scm = unum << 2 | @intFromEnum(TC2.small_integer);
+pub fn makeFixNum(fx: FixNum) SCM {
+    const gnum: UFixNum = @bitCast(fx); // signed -> unsigned
+    const unum: usize = gnum; // widen type
+    const scm = unum << @bitSizeOf(TC2) | @intFromEnum(TC2.small_integer); // tag
     
     return @ptrFromInt(scm);
 }
@@ -398,13 +397,6 @@ pub fn makeFixNum(i: FixNum) SCM {
 //
 //
 //
-
-pub fn assertTagSize(tag: type) void {
-    if (@sizeOf(tag) != @sizeOf(SCMBits) or @bitSizeOf(tag) != @bitSizeOf(SCMBits)) {
-        @compileError("Tag isn't a valid size");
-    }
-}
-
 
 /// size in bits
 pub fn Padding(size: comptime_int) type {
@@ -420,6 +412,7 @@ pub fn Padding(size: comptime_int) type {
     });
 }
 
+//
 
 pub const hash        = @import("internal_workings/hash.zig");
 pub const string      = @import("internal_workings/string.zig");

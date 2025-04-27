@@ -8,7 +8,6 @@ const gzzg_options = .{
     "enable_direct_string_access",
     "enable_comptime_number_creation",
     "enable_iw_smob",
-    "trust_iw_consts",
     "has_bytecode_module",
 };
 
@@ -41,15 +40,13 @@ pub fn build(b: *std.Build) !void {
     build_options.addOption(bool, gzzg_options[0], true);
     build_options.addOption(bool, gzzg_options[1], true);
     build_options.addOption(bool, gzzg_options[2], true);
-    build_options.addOption(bool, gzzg_options[3], true);
-    build_options.addOption(bool, gzzg_options[4], extract_bytecode);
+    build_options.addOption(bool, gzzg_options[3], extract_bytecode);
 
     const build_options_nondirect = b.addOptions();
     build_options_nondirect.addOption(bool, gzzg_options[0], false);
     build_options_nondirect.addOption(bool, gzzg_options[1], false);
     build_options_nondirect.addOption(bool, gzzg_options[2], false);
-    build_options_nondirect.addOption(bool, gzzg_options[3], false);
-    build_options_nondirect.addOption(bool, gzzg_options[4], extract_bytecode);
+    build_options_nondirect.addOption(bool, gzzg_options[3], extract_bytecode);
 
     module_gzzg.addOptions("build_options", build_options);
     module_gzzg_nondirect.addOptions("build_options", build_options_nondirect);

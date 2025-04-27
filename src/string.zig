@@ -129,7 +129,7 @@ pub const String = struct {
             // direct mem access
             const iw = gzzg.internal_workings;
             
-            if (!iw.string.Layout.is(iw.gSCMtoIWSCM(a.s)))
+            if (!iw.string.Layout.is(a.s))
                 return error.scmNotAString;
 
             const s: *align(8) iw.string.Layout = .from(a);
@@ -158,7 +158,7 @@ pub const String = struct {
             // direct mem access
             const iw = gzzg.internal_workings;
             
-            if (!iw.string.Layout.is(iw.gSCMtoIWSCM(value.s))) return;
+            if (!iw.string.Layout.is(value.s)) return;
             // return error.scmNotAString;
             // todo: is there a way to return this error as it currently errors (explicit return type?)
             

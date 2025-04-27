@@ -6,7 +6,6 @@ const gzzg                = @import("../gzzg.zig");
 const guile               = gzzg.guile;
 const iw                  = @import("../internal_workings.zig");
 const Padding             = iw.Padding;
-const assertTagSize       = iw.assertTagSize;
 const TaggedPtr           = iw.TaggedPtr;
 
 // WIP
@@ -23,7 +22,10 @@ pub const Layout = extern struct {
     reserved      : iw.SCM, // = 0 // data set
     offset_user   : void,
 
-    pub fn isBottom(s: iw.SCM) bool { // s = .cons and s[0] = struct
+    const ALayout = *align(8) Layout;
+
+    pub fn isBottom(s: anytype) bool { // s = .cons and s[0] = struct
+        iw.assertTagged(@TypeOf(s));
         if(!iw.isImmediate(s) and iw.getTCFor(iw.TC3, s) == .@"cons") {
             const cell0 = iw.getSCMCell(s, 0);        
             return !iw.isImmediate(cell0) and iw.getTCFor(iw.TC3, cell0) == .@"struct"; 
@@ -32,17 +34,18 @@ pub const Layout = extern struct {
         return false;
     }
         
-    pub fn isBase(s: *align(8) Layout) bool {
+    pub fn isBase(s: ALayout) bool {
         const scm: iw.SCM = @ptrCast(s);
-        const maybe_base = iw.getSCMCell(scm, 0);
+        const maybe_base = iw.untagSCM(scm)[0];
         std.debug.assert(iw.getTCFor(iw.TC3, maybe_base) == .@"struct");
-        return scm == iw.untagSCM(maybe_base);
+        const utg: iw.SCM = @ptrCast(iw.untagSCM(maybe_base));
+        return scm == utg;
     }
 
     //pub fn isVTable(s
 
     // go up a programmers tree (to root)
-    pub fn assend(self: *align(8) Layout) ?*align(8) Layout {
+    pub fn assend(self: ALayout) ?ALayout {
         if (self.isBase()) {
             return null;
         } else {
@@ -55,6 +58,8 @@ pub const Layout = extern struct {
         _ = options;
         _ = fmt;
 
+        const debug = iw.DebugHint.from;
+        
         const red = "\x1B[31m";
         const green = "\x1B[32m";
         const off = "\x1B[0m";
@@ -73,12 +78,12 @@ pub const Layout = extern struct {
             \\{s}}}{s}
             , .{
             green, off,
-            red, off, iw.SCMDebugHint{ .s = v.vtable },
-            red, off, iw.SCMDebugHint{ .s = v.layout },
+            red, off, debug(v.vtable.scm()),
+            red, off, debug(v.layout),
             red, off, v.flags,
             red, off, v.finaliser,
-            red, off, iw.SCMDebugHint{ .s = v.printer },
-            red, off, iw.SCMDebugHint{ .s = v.name },
+            red, off, debug(v.printer),
+            red, off, debug(v.name),
             red, off, v.size,
             red, off, v.unboxed_fields,
             red, off, v.reserved,
@@ -106,8 +111,6 @@ pub const Layout = extern struct {
         _reserved3       : bool,
         // user flag shift 16
         _padding_end: Padding(@bitSizeOf(iw.SCMBits) - 16) = .nil,
-        
-        comptime { assertTagSize(@This()); }
     };
     
     comptime {

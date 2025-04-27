@@ -455,7 +455,7 @@ pub fn RuntimeCustomPort(comptime CPT: type) type {
         
         pub fn get(self: @This()) *CPT {
             // todo: is there a way to avoid using iw here, or just treat it as fine?
-            return @ptrFromInt(gzzg.internal_workings.gSCMtoIWSCM(self.s)[1]);
+            return @alignCast(@ptrCast(gzzg.internal_workings.untagSCM(self.s)[1]));
         }
     };
 }

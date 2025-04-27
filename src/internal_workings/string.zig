@@ -9,7 +9,6 @@ const CharacterWidth      = encoding.CharacterWidth;
 const BufferSlice         = encoding.CharacterWidth.BufferSlice;
 const BufferSliceSentinel = encoding.CharacterWidth.BufferSliceSentinel;
 const Padding             = iw.Padding;
-const assertTagSize       = iw.assertTagSize;
 
 //      |   TC7  |
 //           |TC3|
@@ -55,12 +54,13 @@ pub const Layout = extern struct {
     // expect const.1.0.1 to be a number,
     // expect cons.1.0.2 to be the buffer
     
-    pub fn is(s: iw.SCM) bool {
+    pub fn is(s: anytype) bool {
+        iw.assertTagged(@TypeOf(s));
         if (!(!iw.isImmediate(s) and iw.getTCFor(iw.TC3, s) == .cons))
             return false;
         
-        const c0 = iw.getSCMFrom(s[0]);
-        const c1 = iw.getSCMFrom(s[1]);
+        const c0 = iw.untagSCM(s)[0];
+        const c1 = iw.untagSCM(s)[1];
         
         if (!(iw.isImmediate(c0) and
             iw.getTCFor(iw.TC3, c0) == .tc7 and
@@ -69,7 +69,7 @@ pub const Layout = extern struct {
             iw.getTCFor(iw.TC3, c1) == .cons))
             return false;
 
-        const v0 = iw.getSCMFrom(c1[0]);
+        const v0 = iw.untagSCM(c1)[0];
 
         return iw.isImmediate(v0) and
             iw.getTCFor(iw.TC3, v0) == .tc7_2 and
@@ -84,7 +84,7 @@ pub const Layout = extern struct {
         };
     }
 
-    const Tag = packed struct {
+    const Tag = packed struct(iw.SCMBits) {
         tc7: iw.TC7,
         _padding1: Padding(1) = .nil,
         shared: bool,
@@ -98,8 +98,6 @@ pub const Layout = extern struct {
                 .readable_status = readable_status,
             };
         }
-        
-        comptime { assertTagSize(@This()); }
     };
 };
 
@@ -237,7 +235,7 @@ pub fn Buffer(options: BufferOptions) type {
             return @ptrCast(self);
         }
 
-        pub const Tag = packed struct {
+        pub const Tag = packed struct(iw.SCMBits) {
             tc7: iw.TC7,
             _padding1: Padding(3) = .nil,
             width: CharacterWidth,
@@ -251,8 +249,6 @@ pub fn Buffer(options: BufferOptions) type {
                     .mutable = mutate
                 };
             }
-            
-            comptime { assertTagSize(@This()); }
         };
     };
 }

@@ -93,7 +93,6 @@ fn maxRadius() comptime_int {
 
 pub fn gzzgMonteCarloPiFixNum(samples: usize) Number {
     const isFixNum = gzzg.internal_workings.isFixNum;
-    const toIW     = gzzg.internal_workings.gSCMtoIWSCM;
     
     const max               = Number.from(comptime maxRadius());
     const two               = Number.from(2);
@@ -107,9 +106,9 @@ pub fn gzzgMonteCarloPiFixNum(samples: usize) Number {
         const y   = max.random(rand);
         const xpy = x.expt(two).sum(y.expt(two));
         
-        std.debug.assert(isFixNum(toIW(x.s)));
-        std.debug.assert(isFixNum(toIW(y.s)));
-        std.debug.assert(isFixNum(toIW(xpy.s)));
+        std.debug.assert(isFixNum(x.s));
+        std.debug.assert(isFixNum(y.s));
+        std.debug.assert(isFixNum(xpy.s));
 
         if (xpy.lessThanEqual(quart_unit_circle).toZ()) {
             in = in.onePlus();

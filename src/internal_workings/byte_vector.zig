@@ -7,7 +7,6 @@ const guile               = gzzg.guile;
 const iw                  = @import("../internal_workings.zig");
 
 const Padding             = iw.Padding;
-const assertTagSize       = iw.assertTagSize;
 
 pub const Layout = extern struct {
     const Self = @This();
@@ -17,7 +16,7 @@ pub const Layout = extern struct {
     contents: [*c]u8,
     parent: iw.SCM,
 
-    const Tag = packed struct {
+    const Tag = packed struct(iw.SCMBits) {
         tc7: iw.TC7,
         _padding_end: Padding(@bitSizeOf(iw.SCMBits) - (7)) = .nil,
 
@@ -32,8 +31,6 @@ pub const Layout = extern struct {
                 .tc7 = .bytevector,
             };
         }
-        
-        comptime { assertTagSize(@This()); }
     };
 
     pub fn getContentsU8(self: *align(8) Self) []u8 {
