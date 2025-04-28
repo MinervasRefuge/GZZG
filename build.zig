@@ -145,6 +145,15 @@ fn buildExamples(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.M
                 .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
             }),
         }),
+        b.addExecutable(.{
+            .name = "example-cellular-automaton",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("examples/cellular_automaton.zig"),
+                .target = target,
+                .optimize = optimise,
+                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+            }),
+        }),
     };
 
     for (examples) |example| {
