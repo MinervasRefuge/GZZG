@@ -47,3 +47,4 @@ I'm not a fruitcake. Am I lad? -- Wallace
 #+end_quote
 
 BSD-3-Clause : Copyright © 2025 Abigale Raeck.
+=Examples= licensed under GNU GPLv3. Copy provided within examples directory.
