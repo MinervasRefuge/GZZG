@@ -268,7 +268,7 @@ fn wrapZig(function: anytype) GZZGFn(@TypeOf(function), fn (...) callconv(.c) gu
 /// - !⍰        → Guile Exception or ⍰
 /// - ?⍰        → False (#f) or ⍰
 /// - .{ ⍰ }    → Tuples as (values …)
-/// - void      → as undefined return value (default no value)
+/// - void      → as unspecified return value (default no value)
 inline fn returnOf(comptime T: type, value: anytype) guile.SCM {
     switch (@typeInfo(T)) {
         .error_union => |eu| {
@@ -296,7 +296,7 @@ inline fn returnOf(comptime T: type, value: anytype) guile.SCM {
                 return returnOf(p.child, value.*);
             }
         },
-        .void => return Any.UNDEFINED.s,
+        .void => return Any.UNSPECIFIED.s,
         .@"struct" => |st| {
             if (st.is_tuple) {
                 var scms:[st.fields.len]guile.SCM = undefined;
