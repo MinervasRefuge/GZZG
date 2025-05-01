@@ -1,13 +1,15 @@
+#+OPTIONS: toc:nil
+#+OPTIONS: ^:nil
 * Changelog
 ** 0.1.0 - [2025-04-11 Fri]
 First release, ~zig@0.14~.
 
 *** Added
-- ~GuileGCAllocator~ :: Allocator based on Guile exposed GC API
+- ~GuileGCAllocator~ : Allocator based on Guile exposed GC API
 - ~eq~, ~eqv~, ~equal~, ~eqZ~
-- ~MultiValue~ :: (value ...) tool            
-- ~StaticCache~ :: Static Caching tool for primitives
-- ~UnionSCM~ :: Narrowed type-checking for known return types              
+- ~MultiValue~ : (value ...) tool            
+- ~StaticCache~ : Static Caching tool for primitives
+- ~UnionSCM~ : Narrowed type-checking for known return types              
 - ~catchException~         
 - ~catchExceptionC~        
 - ~display~, ~displayErr~    
@@ -19,7 +21,7 @@ First release, ~zig@0.14~.
 - ~raiseZ~, ~lowerZ~
 - internal & external unit tests
 - Guix manifest environment
-- contracts :: Zig comptime type checking
+- contracts : Zig comptime type checking
 
 **** build.zig
 - Build options
@@ -57,24 +59,24 @@ First release, ~zig@0.14~.
 - ~HashTableOf~
 - ~HashTable~
 - ~Port~
-- ~ZigIO~ :: Custom Port 
-- ~WrapZigIO~ :: comptime wrapper over common ~reader~ and ~writer~ as a Guile ~Port~
+- ~ZigIO~ : Custom Port 
+- ~WrapZigIO~ : comptime wrapper over common ~reader~ and ~writer~ as a Guile ~Port~
 
 **** Partial Implemented Containers
-- ~Smob~ :: (Not public)
-- ~Thread~ :: (Not public)
-- ~Hook~ :: (Not public)
+- ~Smob~ : (Not public)
+- ~Thread~ : (Not public)
+- ~Hook~ : (Not public)
 - ~Module~
 - ~Procedure~
 - ~ThunkOf~
-- ~ForeignType~ :: Bundles types into Guile manageable objects
-- ~Stack~ :: (Not public)
-- ~Frame~ :: (Not public)
+- ~ForeignType~ : Bundles types into Guile manageable objects
+- ~Stack~ : (Not public)
+- ~Frame~ : (Not public)
 
 **** Internal Workings 
 - SCM container
 - TC1, TC2, TC3, TC7, TC8
-- GuileClassification :: (untested)
+- GuileClassification : (untested)
 - ~FixNum~
 - byte vector layout
 - string layout & encoding

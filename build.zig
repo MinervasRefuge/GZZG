@@ -1,8 +1,10 @@
 // BSD-3-Clause : Copyright © 2025 Abigale Raeck.
 // zig fmt: off
 
-const std    = @import("std");
-const Import = std.Build.Module.Import;
+const std = @import("std");
+const Step     = std.Build.Step;
+const LazyPath = std.Build.LazyPath;
+const Module   = std.Build.Module;
 
 const gzzg_options = .{
     "enable_direct_string_access",
@@ -21,8 +23,7 @@ pub fn build(b: *std.Build) !void {
         orelse false;
     
     if (extract_bytecode) {
-        const cmd = b.addSystemCommand(&.{"guile", "--no-auto-compile"});
-        cmd.addFileArg(b.path("src/extract-bytecodes.scm"));
+        const cmd = runGuile(b, b.path("src/extract-bytecodes.scm"));
 
         const module_bytecode = b.addModule("bytecode", .{
             .root_source_file = cmd.captureStdOut(),
@@ -103,66 +104,115 @@ fn getOptimiseOptions(b: *std.Build) std.builtin.OptimizeMode {
     return container.singleton.?;
 }
 
-fn createModule(b: *std.Build) *std.Build.Module {
+fn createModule(b: *std.Build) *Module {
     return b.addModule("gzzg", .{
         .root_source_file = b.path("src/gzzg.zig"),
         .target = getTargetOptions(b),
         .optimize = getOptimiseOptions(b),
         .link_libc = true,
-        .imports = &[_]Import{.{ .name = "guile", .module = produceGuileModule(b) }},
+        .imports = &.{.{ .name = "guile", .module = produceGuileModule(b) }},
     });
 }
 
-fn buildExamples(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) void {
+fn runGuile(b: *std.Build, file: LazyPath) *Step.Run {
+    const guile_exe = b.graph.env_map.get("GUILE") orelse "guile";
+    const run_guile = b.addSystemCommand(&.{guile_exe});
+    run_guile.addArgs(&.{"--no-auto-compile"});
+    run_guile.addArg("-s");
+    run_guile.addFileArg(file);
+
+    return run_guile;
+}
+
+fn buildExamples(b: *std.Build, step_all: *Step, module_gzzg: *Module) void {
     const target = getTargetOptions(b);
     const optimise = getOptimiseOptions(b);
 
-    const examples = [_]*std.Build.Step.Compile{
+    const module_example_cellular_automaton =  b.createModule(.{
+        .root_source_file = b.path("examples/cellular_automaton.zig"),
+        .target = target,
+        .optimize = optimise,
+        .imports = &.{.{ .name = "gzzg", .module = module_gzzg }},
+    });
+
+    const examples = [_]*Step.Compile{
         b.addExecutable(.{
-            .name = "example-allsorts",
+            .name = "allsorts",
             .root_module = b.createModule(.{
                 .root_source_file = b.path("examples/allsorts.zig"),
                 .target = target,
                 .optimize = optimise,
-                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+                .imports = &.{.{ .name = "gzzg", .module = module_gzzg }},
             }),
         }),
         b.addExecutable(.{
-            .name = "example-sieve",
+            .name = "sieve",
             .root_module = b.createModule(.{
                 .root_source_file = b.path("examples/sieve_of_Eratosthenes.zig"),
                 .target = target,
                 .optimize = optimise,
-                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+                .imports = &.{.{ .name = "gzzg", .module = module_gzzg }},
             }),
         }),
         b.addExecutable(.{
-            .name = "example-monte-carlo-pi",
+            .name = "monte-carlo-pi",
             .root_module = b.createModule(.{
                 .root_source_file = b.path("examples/monte_carlo_pi.zig"),
                 .target = target,
                 .optimize = optimise,
-                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+                .imports = &.{.{ .name = "gzzg", .module = module_gzzg }},
             }),
         }),
         b.addExecutable(.{
-            .name = "example-cellular-automaton",
-            .root_module = b.createModule(.{
-                .root_source_file = b.path("examples/cellular_automaton.zig"),
-                .target = target,
-                .optimize = optimise,
-                .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
-            }),
+            .name = "cellular-automaton-pure-zig",
+            .root_module = module_example_cellular_automaton,
         }),
     };
 
+    const OutlineBuild = std.meta.Tuple(&.{ []const u8, []const u8, *Step.InstallArtifact});
+    const OutlineRun   = std.meta.Tuple(&.{ []const u8, []const u8, *Step.Run});
+    var build_steps = std.ArrayList(OutlineBuild).init(b.allocator);
+    var run_steps = std.ArrayList(OutlineRun).init(b.allocator);
+    defer build_steps.deinit();
+    defer run_steps.deinit();
+
     for (examples) |example| {
-        b.installArtifact(example);
-        step.dependOn(&example.step);
+        const file_name = example.name;
+        const prefix_name = b.fmt("example-{s}", .{file_name});
+
+        const arti = b.addInstallArtifact(example, .{ .dest_sub_path = "examples"});
+        const run = b.addRunArtifact(arti.artifact);
+
+        build_steps.append(.{
+            prefix_name,
+            b.fmt("Build {s}", .{prefix_name}),
+            arti
+        }) catch @panic("OOM");
+
+        run_steps.append(.{
+            b.fmt("run-{s}", .{prefix_name}),
+            b.fmt("Run {s}", .{prefix_name}),
+            run
+        }) catch @panic("OOM");
+                                
+        step_all.dependOn(&arti.step);
+    }
+
+
+    //
+    // add build step before run steps
+    for (build_steps.items) |ersatz| {
+        const step = b.step(ersatz[0], ersatz[1]);
+        step.dependOn(&ersatz[2].step);
+    }
+
+    for (run_steps.items) |ersatz| {
+        const step = b.step(ersatz[0], ersatz[1]);
+        step.dependOn(&ersatz[2].step);
     }
 }
 
-fn buildExternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
+fn buildExternalTests(b: *std.Build, step: *Step, module_gzzg: *Module) *Step.Compile {
     // is there a way for it to ouput the results of running the tests like pass and fail number?
     // currently the tests are not verbose as to what they tested.
 
@@ -172,7 +222,7 @@ fn buildExternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Bu
             .target = getTargetOptions(b),
             .optimize = getOptimiseOptions(b),
             .single_threaded = true,
-            .imports = &[_]Import{.{ .name = "gzzg", .module = module_gzzg }},
+            .imports = &.{.{ .name = "gzzg", .module = module_gzzg }},
         }),
     });
 
@@ -182,7 +232,7 @@ fn buildExternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Bu
     return test_suite;
 }
 
-fn buildInternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Build.Module) *std.Build.Step.Compile {
+fn buildInternalTests(b: *std.Build, step: *Step, module_gzzg: *Module) *Step.Compile {
     const test_gzzg = b.addTest(.{ //
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/gzzg.zig"),
@@ -204,7 +254,7 @@ fn buildInternalTests(b: *std.Build, step: *std.Build.Step, module_gzzg: *std.Bu
 }
 
 
-fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Compile, out: [:0]const u8) void {
+fn covOver(b: *std.Build, step: *Step, test_suite: *Step.Compile, out: [:0]const u8) void {
     // Kcov works for zig via dwarf debug info. Downside is if the function is not used, it's not
     // listed in the dwarf and code coverage won't tell you otherwise. (100%)
     // So if there was a way to force zig to add in all functions regardless of usage, then this
@@ -218,7 +268,7 @@ fn covOver(b: *std.Build, step: *std.Build.Step, test_suite: *std.Build.Step.Com
     step.dependOn(&cmd.step);
 }
 
-fn produceGuileModule(b: *std.Build) *std.Build.Module {
+fn produceGuileModule(b: *std.Build) *Module {
     const lib      = "guile-3.0";
     const sub_path = "/guile/3.0";
     
@@ -244,16 +294,16 @@ fn produceGuileModule(b: *std.Build) *std.Build.Module {
 // ~std.Build.Step.Compile.execPkgConfigList~ isn't public or really accsessable via a build step dep.
 // dup as it's own step.
 const SystemLibraryIncludePath = struct {
-    step: std.Build.Step,
+    step: Step,
     pkg_name: []const u8,
     append: [] const u8,
     output_dir: std.Build.GeneratedFile,
 
-    pub fn getOutput(self: *@This()) std.Build.LazyPath {
+    pub fn getOutput(self: *@This()) LazyPath {
         return .{ .generated = .{ .file = &self.output_dir } };
     }
 
-    pub fn getOutputWithSubPath(self: *@This(), sub_path: []const u8) std.Build.LazyPath { 
+    pub fn getOutputWithSubPath(self: *@This(), sub_path: []const u8) LazyPath { 
         return .{  .generated = .{ .file = &self.output_dir, .sub_path = sub_path } };
     }
 
@@ -261,8 +311,8 @@ const SystemLibraryIncludePath = struct {
         const l = owner.allocator.create(@This()) catch @panic("OOM");
 
         l.* = .{
-            .step = std.Build.Step.init(.{
-                .id = std.Build.Step.Id.custom,
+            .step = Step.init(.{
+                .id = Step.Id.custom,
                 .name = owner.fmt("find pkg {s} for path {s}", .{pkg, append_path}),
                 .owner = owner,
                 .makeFn = make,
@@ -275,7 +325,7 @@ const SystemLibraryIncludePath = struct {
         return l;
     }
 
-    fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) !void {
+    fn make(step: *Step, options: Step.MakeOptions) !void {
         const b = step.owner;
         const self: *@This() = @fieldParentPtr("step", step);
 
@@ -304,20 +354,20 @@ const SystemLibraryIncludePath = struct {
 // SourceCleaner hides a few invalid functions from the c-translated header.
 // Helpful for dev purposes, though not needed for external libs
 const SourceCleaner = struct {
-    step: std.Build.Step,
-    source: std.Build.LazyPath,
+    step: Step,
+    source: LazyPath,
     output_file: std.Build.GeneratedFile,
     file_name: []const u8,
 
-    const Options = struct { translation_path: std.Build.LazyPath };
+    const Options = struct { translation_path: LazyPath };
 
     pub fn create(owner: *std.Build, options: Options) *SourceCleaner {
         const cleaner = owner.allocator.create(SourceCleaner) catch @panic("OOM");
         const source = options.translation_path.dupe(owner);
 
         cleaner.* = SourceCleaner{
-            .step = std.Build.Step.init(.{
-                .id = std.Build.Step.Id.custom,
+            .step = Step.init(.{
+                .id = Step.Id.custom,
                 .name = "trim-guile_c-translate", //
                 .owner = owner,
                 .makeFn = make,
@@ -332,17 +382,17 @@ const SourceCleaner = struct {
         return cleaner;
     }
 
-    pub fn getOutput(cleaner: *SourceCleaner) std.Build.LazyPath {
+    pub fn getOutput(cleaner: *SourceCleaner) LazyPath {
         return .{ .generated = .{ .file = &cleaner.output_file } };
     }
 
-    pub fn addModule(cleaner: *SourceCleaner, name: []const u8) *std.Build.Module {
+    pub fn addModule(cleaner: *SourceCleaner, name: []const u8) *Module {
         return cleaner.step.owner.addModule(name, .{
             .root_source_file = cleaner.getOutput(),
         });
     }
 
-    fn make(step: *std.Build.Step, options: std.Build.Step.MakeOptions) !void {
+    fn make(step: *Step, options: Step.MakeOptions) !void {
         _ = options;
         const b = step.owner;
         const cleaner: *SourceCleaner = @fieldParentPtr("step", step);

@@ -106,6 +106,9 @@ pub const newlineErr              = core.newlineErr;
 pub const orUndefined             = core.orUndefined;
 pub const withContinuationBarrier = core.withContinuationBarrier;
 
+pub const define                  = core.define;
+pub const defineZ                 = core.defineZ;
+
 pub const eq                      = core.eq;
 pub const eqv                     = core.eqv;
 pub const equal                   = core.equal;

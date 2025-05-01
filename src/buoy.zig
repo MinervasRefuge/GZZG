@@ -33,9 +33,8 @@ fn OptionalOf(comptime T: type) GZZGType(T, type) {
     return UnionOf(.{ Boolean, T });
 }
 
-const AList = ListOf(PairOf(Symbol, Any));
-
 pub const basic = struct {
+    pub const AList = ListOf(PairOf(Symbol, Any));
     pub const Hint = struct {
         u8_array_is: U8ArrayIs = .string,
         use_sized_array: bool = false, // unimplemented

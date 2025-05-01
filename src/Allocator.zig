@@ -26,7 +26,6 @@ fn alloc(ctx: *anyopaque, len: usize, alignment: Alignment, ret_addr: usize) ?[*
     const self: *Self = @alignCast(@ptrCast(ctx));
     _ = ret_addr;
 
-    std.debug.print("alignment on {}\n", .{alignment});
     switch (alignment.order(.@"8")) {
         .lt, .eq => {},
         .gt => return null, // libguile/scm.h:228

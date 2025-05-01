@@ -4,6 +4,8 @@ const std   = @import("std");
 const gzzg  = @import("gzzg.zig");
 const guile = gzzg.guile;
 
+const orUndefined = gzzg.orUndefined;
+
 const GZZGByteable = gzzg.contracts.GZZGByteable;
 
 const Any     = gzzg.Any;
@@ -50,10 +52,11 @@ pub const ByteVector = extern struct {
 
     pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_bytevector_p(a) }; }
     pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_bytevector(a) != 0; }
-
     pub fn lowerZ(a: ByteVector) Any { return .{ .s = a.s }; }
 
-    pub fn make(length: usize) ByteVector { return .{ .s = guile.scm_c_make_bytevector(length) }; }
+    pub fn make(length: Integer, fill: ?Integer) ByteVector
+        { return .{ .s = guile.scm_make_bytevector(length.s, orUndefined(fill)) }; }
+    pub fn makeZ(length: usize) ByteVector { return .{ .s = guile.scm_c_make_bytevector(length) }; }
 
     pub fn nativeEndianness() Symbol { return .{ .s = guile.scm_native_endianness() }; }
     
