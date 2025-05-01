@@ -61,10 +61,12 @@ pub fn eval(str: anytype, module: ?Module) Any {
     return .{ .s = guile.scm_eval_string_in_module(String.fromUTF8(str).s, orUndefined(module)) };
 }
 
+// todo: export option
 pub fn define(sym: Symbol, value: anytype) GZZGType(@TypeOf(value), Any) {
     return .{ .s = guile.scm_define(sym.s, value.s) };
 }
 
+// todo: export option
 pub fn defineZ(sym: [*:0]const u8, value: anytype) GZZGType(@TypeOf(value), Any) {
     return .{ .s = guile.scm_c_define(sym, value.s) };
 }

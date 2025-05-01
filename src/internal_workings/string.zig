@@ -28,7 +28,8 @@ pub const Layout = extern struct {
     start: usize,
     len: usize,
 
-    ///todo should buffer be anytype?
+    // todo: should buffer be anytype?
+    // is buffer a *const or depended on StringBuf flags
     pub fn init(buffer: *align(8) const Buffer(.ambiguous), readable_status: ReadOnly) Layout {
         return .{
             .tag = .init(false, readable_status),
@@ -40,6 +41,12 @@ pub const Layout = extern struct {
 
     pub fn ref(self: *align(8) @This()) gzzg.String {
         return .{ .s = @ptrCast(self) };
+    }
+
+    pub fn refConst(self: *const align(8) @This()) gzzg.String {
+        // is this the right way to make safer?
+        std.debug.assert(self.tag.readable_status == .just_readable); 
+        return .{ .s = @constCast(@ptrCast(self)) };
     }
 
     pub fn from(self: gzzg.String) *align(8) Layout {
@@ -161,6 +168,7 @@ pub fn Buffer(options: BufferOptions) type {
                 }
             };
 
+            // todo: consider using allocator.allocSentinel
             const full_size = @sizeOf(Buffer(.ambiguous)) + bytes_extra + 1;
             const al = try allocator.alignedAlloc(u8, 8, full_size);
             const b: *align(8) Buffer(.ambiguous) = @ptrCast(al);
@@ -197,7 +205,7 @@ pub fn Buffer(options: BufferOptions) type {
             }.getSliceExact,
         };
 
-        fn getBufferPtr(self: *Self, tw: type) [*:0]tw {
+        fn getBufferPtr(self: *Self, TW: type) [*:0]TW {
             return @ptrCast(&self.buffer);
         }
 
@@ -219,16 +227,16 @@ pub fn Buffer(options: BufferOptions) type {
             }
         }
 
-        fn OfMatchingPointer(p: type, child: type) type {
+        fn OfMatchingPointer(p: type, Child: type) type {
             const info = @typeInfo(p).pointer;
 
             if (info.alignment < 8)
                 @compileError("Incorrect alignment");
 
             return if (info.is_const)
-                *align(info.alignment) const child
+                *align(info.alignment) const Child
             else
-                *align(info.alignment) child;
+                *align(info.alignment) Child;
         }
 
         pub inline fn ambiguation(self: anytype) OfMatchingPointer(@TypeOf(self), Buffer(.ambiguous)) {
