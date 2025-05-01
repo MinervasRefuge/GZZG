@@ -198,6 +198,36 @@ fn buildExamples(b: *std.Build, step_all: *Step, module_gzzg: *Module) void {
         step_all.dependOn(&arti.step);
     }
 
+    //
+    // special cases
+    //
+    { // foreign type example
+        const file_name = "cellular-automaton";
+        const prefix_name = b.fmt("example-{s}", .{file_name});
+        const example_lib = b.addLibrary(.{
+            .name = prefix_name,
+            .linkage = .dynamic,
+            .root_module = module_example_cellular_automaton,
+        });
+
+        const arti = b.addInstallArtifact(example_lib, .{});
+        const run = runGuile(b, b.path("examples/cellular-automaton.scm"));
+        run.addArtifactArg(example_lib);
+
+        step_all.dependOn(&arti.step);
+
+        build_steps.append(.{
+            prefix_name,
+            b.fmt("Build {s}", .{prefix_name}),
+            arti
+        }) catch @panic("OOM");
+
+        run_steps.append(.{
+            b.fmt("run-{s}", .{prefix_name}),
+            b.fmt("Run Guile {s} example", .{file_name}),
+            run
+        }) catch @panic("OOM");
+    }
 
     //
     // add build step before run steps

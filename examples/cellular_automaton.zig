@@ -17,8 +17,6 @@
 
 // zig fmt: off
 const std   = @import("std");
-const gzzg  = @import("gzzg");
-const guile = gzzg.guile;
 
 const Tuple = std.meta.Tuple;
 const cPrint = std.fmt.comptimePrint;
@@ -281,29 +279,25 @@ fn FlipBuffer(comptime Child: type) type {
     };
 }
 
-//       /\          /\          /\          /\
+//        /\          /\          /\          /\
 //     /\//\\/\    /\//\\/\    /\//\\/\    /\//\\/\
 //  /\//\\\///\\/\//\\\///\\/\//\\\///\\/\//\\\///\\/\
 // //\\\//\/\\///\\\//\/\\///\\\//\/\\///\\\//\/\\///\\
-// \\//\/    ░█▀▀░█▀▀░█░░░█░░░█░█░█░░░█▀█░█▀▄    \/\\//
-//  \/       ░█░░░█▀▀░█░░░█░░░█░█░█░░░█▀█░█▀▄       \/
-//  /\       ░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀░▀       /\
-// //\\    ░█▀█░█░█░▀█▀░█▀█░█▄█░█▀█░▀█▀░█▀█░█▀█    //\\
-// \\//    ░█▀█░█░█░░█░░█░█░█░█░█▀█░░█░░█░█░█░█    \\//
-//  \/     ░▀░▀░▀▀▀░░▀░░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀     \/
-//  /\               ░█░█░▀█▀░▀█▀░█░█               /\
-// //\\              ░█▄█░░█░░░█░░█▀█              //\\
-// \\//              ░▀░▀░▀▀▀░░▀░░▀░▀              \\//
-//  \/   ░█▀▀░▀▀█░▀▀█░█▀▀░░░█░█▀▀░█░█░▀█▀░█░░░█▀▀   \/
-//  /\   ░█░█░▄▀░░▄▀░░█░█░▄▀░░█░█░█░█░░█░░█░░░█▀▀   /\
-// //\\/\░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░░░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀/\//\\
+// \\//\/                                        \/\\//
+//  \/       ░█▀▀░█▀▀░█░░░█░░░█░█░█░░░█▀█░█▀▄       \/
+//  /\       ░█░░░█▀▀░█░░░█░░░█░█░█░░░█▀█░█▀▄       /\
+// //\\      ░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀░▀      //\\
+// \\//    ░█▀█░█░█░▀█▀░█▀█░█▄█░█▀█░▀█▀░█▀█░█▀█    \\//
+//  \/     ░█▀█░█░█░░█░░█░█░█░█░█▀█░░█░░█░█░█░█     \/
+//  /\     ░▀░▀░▀▀▀░░▀░░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀     /\
+// //\\/\                                        /\//\\
 // \\///\\/\//\\\///\\/\//\\\///\\/\//\\\///\\/\//\\\//
 //  \/\\///\\\//\/\\///\\\//\/\\///\\\//\/\\///\\\//\/
 //     \/\\//\/    \/\\//\/    \/\\//\/    \/\\//\/
 //        \/          \/          \/          \/
 
-pub fn AutomatonIterator(comptime window: XY, comptime Cell: type, comptime rule: fn (XY, [][]const Cell) Cell) type {
-    _ = @typeInfo(Cell).@"enum";
+pub fn AutomatonIterator(comptime window: XY, comptime ICell: type, comptime rule: fn (XY, [][]const ICell) ICell) type {
+    _ = @typeInfo(ICell).@"enum";
 
     const offset: XY = .{
         .x = @divExact(window.x - 1, 2),
@@ -311,11 +305,13 @@ pub fn AutomatonIterator(comptime window: XY, comptime Cell: type, comptime rule
     };
 
     return struct {
+        pub const Cell = ICell;
+
         size: XY,
         fbuffer: FlipBuffer(Cell),
 
         fn next(self: *@This()) void {
-            var view: [window.y][]const Cell = undefined;
+            var view: [window.y][]const ICell = undefined;
             const read, const write = self.fbuffer.buffer();
             self.fbuffer.toggle();
 
@@ -394,6 +390,8 @@ const WireWorld = struct {
         }
     };
 
+    const Iterator = AutomatonIterator(window, Cell, rule);
+
     fn rule(centre: XY, view: [][]const Cell) Cell {
         return switch (view[centre.y][centre.x]) {
             .empty => .empty,
@@ -416,7 +414,7 @@ const WireWorld = struct {
         };
     }
 
-    fn iterator(map: anytype) AutomatonIterator(window, Cell, rule) {
+    fn iterator(map: anytype) Iterator {
         assertMap(@TypeOf(map));
         return .{
             .size = map.size,
@@ -447,6 +445,8 @@ const ConwaysGameOfLife = struct {
         }
     };
 
+    const Iterator = AutomatonIterator(window, Cell, rule);
+
     fn rule(centre: XY, view: [][]const Cell) Cell {
         var neighbours: u8 = 0;
         for (view, 0..) |x_row, wy| {
@@ -465,7 +465,7 @@ const ConwaysGameOfLife = struct {
         };
     }
 
-    fn iterator(map: anytype) AutomatonIterator(window, Cell, rule) {
+    fn iterator(map: anytype) Iterator {
         assertMap(@TypeOf(map));
         return .{
             .size = map.size,
@@ -541,3 +541,203 @@ pub fn main() !void {
 
     std.debug.print(clear ++ seek_home, .{});
 }
+
+//        /\          /\          /\          /\
+//     /\//\\/\    /\//\\/\    /\//\\/\    /\//\\/\
+//  /\//\\\///\\/\//\\\///\\/\//\\\///\\/\//\\\///\\/\
+// //\\\//\/\\///\\\//\/\\///\\\//\/\\///\\\//\/\\///\\
+// \\//\/                                        \/\\//
+//  \/               ░█░█░▀█▀░▀█▀░█░█               \/
+//  /\               ░█▄█░░█░░░█░░█▀█               /\
+// //\\              ░▀░▀░▀▀▀░░▀░░▀░▀              //\\
+// \\//  ░█▀▀░▀▀█░▀▀█░█▀▀░░░█░█▀▀░█░█░▀█▀░█░░░█▀▀  \\//
+//  \/   ░█░█░▄▀░░▄▀░░█░█░▄▀░░█░█░█░█░░█░░█░░░█▀▀   \/
+//  /\   ░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░░░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀   /\
+// //\\/\                                        /\//\\
+// \\///\\/\//\\\///\\/\//\\\///\\/\//\\\///\\/\//\\\//
+//  \/\\///\\\//\/\\///\\\//\/\\///\\\//\/\\///\\\//\/
+//     \/\\//\/    \/\\//\/    \/\\//\/    \/\\//\/
+//        \/          \/          \/          \/
+
+// zig fmt: off
+const gzzg = @import("gzzg");
+const AList      = gzzg.buoy.basic.AList;
+const Any        = gzzg.Any;
+const ByteVector = gzzg.ByteVector;
+const Integer    = gzzg.Integer;
+const ListOf     = gzzg.ListOf;
+const Procedure  = gzzg.Procedure;
+const String     = gzzg.String;
+const Symbol     = gzzg.Symbol;
+const buoy       = gzzg.buoy.basic.from;
+const guile      = gzzg.guile;
+// zig fmt: on
+
+const module_name = "cellular-automaton";
+
+export fn initPlugin() void {
+    _ = gzzg.Module.define(module_name, initModule);
+}
+
+fn initModule() void {
+    CAMap.register();
+    CAIterator.register();
+}
+
+const CAMap = struct {
+    const ix_name = "map";
+    const guile_name = module_name ++ "-" ++ ix_name;
+    var gc = gzzg.GuileGCAllocator{ .what = guile_name };
+    const Foreign = gzzg.ForeignObjectOf(@This(), guile_name, .{ .size, .b1, .b2 }, null);
+
+    size: *XY,
+    b1: ByteVector,
+    b2: ByteVector,
+
+    fn register() void {
+        Foreign.registerType();
+        _ = Procedure.define("make-" ++ ix_name, make, null, true);
+        _ = Procedure.define(ix_name ++ "-size", getSize, null, true);
+    }
+
+    fn make(x: Integer, y: Integer) !Foreign {
+        if (x.lowerNumber().isNegative().toZ() or
+            y.lowerNumber().isNegative().toZ() or
+            x.lowerNumber().isZero().toZ() or
+            y.lowerNumber().isZero().toZ()) return error.InvalidSize;
+
+        const size = try gc.allocator().create(XY);
+        const len = x.product(y);
+
+        size.* = .{
+            .x = x.toZ(usize),
+            .y = y.toZ(usize),
+        };
+
+        return .make(.{
+            .size = size,
+            .b1 = ByteVector.make(len, Integer.from(0)),
+            .b2 = ByteVector.make(len, Integer.from(0)),
+        });
+    }
+
+    fn getSize(self: Foreign) AList {
+        return buoy(self.getSlot(.size).*, .{});
+    }
+
+    fn flipBuffer(self: CAMap, comptime Child: type) FlipBuffer(Child) {
+        if (@sizeOf(Child) > @sizeOf(u8)) @compileError("BAD WOLF");
+
+        return .{
+            .b1 = @ptrCast(self.b1.contents(u8)),
+            .b2 = @ptrCast(self.b2.contents(u8)),
+        };
+    }
+};
+
+const CAIterator = struct {
+    const ix_name = "iterator";
+    const guile_name = module_name ++ "-" ++ ix_name;
+    var gc = gzzg.GuileGCAllocator{ .what = guile_name };
+    const Foreign = gzzg.ForeignObjectOf(@This(), guile_name, .{ .map, .itr }, null);
+
+    const Automatons = union(enum) {
+        const display_names = &.{ "conways-game-of-life", "wire-world" };
+        const cache = gzzg.StaticCache(Symbol, Symbol.fromUTF8, display_names);
+
+        cgol: ConwaysGameOfLife.Iterator,
+        ww: WireWorld.Iterator,
+    };
+
+    map: CAMap.Foreign,
+    itr: *Automatons,
+
+    fn register() void {
+        Foreign.registerType();
+        _ = Procedure.define("make-" ++ ix_name, make, null, true);
+        _ = Procedure.define(ix_name ++ "-next", next, null, true);
+        _ = Procedure.define(ix_name ++ "-print", print, null, true);
+        _ = Procedure.define(ix_name ++ "-world!", setWorld, null, true);
+    }
+
+    fn make(catype: Symbol, map: CAMap.Foreign) !Foreign {
+        const itr = try gc.allocator().create(Automatons);
+        const hash = catype.hash();
+        var has = false;
+
+        inline for (std.meta.fields(Automatons), Automatons.display_names) |field, name| {
+            if (Automatons.cache.get(name).hash().equal(hash).toZ()) {
+                itr.* = @unionInit(Automatons, field.name, .{
+                    .size = map.getSlot(.size).*,
+                    .fbuffer = map.assemble().flipBuffer(field.type.Cell),
+                });
+
+                has = true;
+                break;
+            }
+        }
+
+        if (has) {
+            return .make(.{ .itr = itr, .map = map });
+        } else {
+            return error.UnknownAutomaton;
+        }
+    }
+
+    // todo: This could be improved
+    fn next(self: Foreign) void {
+        const ptr = self.getSlot(.itr);
+        switch (ptr.*) {
+            //inline else => |*u| u.next(),
+            .cgol => ptr.cgol.next(),
+            .ww => ptr.ww.next(),
+        }
+    }
+
+    // todo: This could be improved
+    fn print(self: Foreign) void {
+        const ptr = self.getSlot(.itr);
+        switch (ptr.*) {
+            //inline else => |*u| u.next(),
+            .cgol => std.debug.print("{}\n", .{ptr.cgol}),
+            .ww => std.debug.print("{}\n", .{ptr.ww}),
+        }
+    }
+
+    // todo: This could be improved
+    fn setWorld(self: Foreign, list: ListOf(String)) !void {
+        const map = self.getSlot(.map).assemble();
+        const atmn = self.getSlot(.itr);
+
+        const b1 = map.b1.contents(u8);
+        const b2 = map.b2.contents(u8);
+
+        var litr = list.iterator();
+        var y: usize = 0;
+        while (litr.next()) |row| : (y += 1) {
+            if (y >= map.size.y) return error.OutsideMapBounds;
+
+            var chitr = row.iterator();
+            var x: usize = 0;
+            while (chitr.next()) |gchar| : (x += 1) {
+                if (x >= map.size.x) return error.OutsideMapBounds;
+
+                const idx = y * map.size.x + x;
+                const char = (try gchar.toZ()).getOne();
+                const cell = switch (atmn.*) {
+                    .cgol => if (ConwaysGameOfLife.Cell.fromChar(char)) |c|
+                        @intFromEnum(c)
+                    else
+                        return error.InvalidMapCharacter,
+                    .ww => if (WireWorld.Cell.fromChar(char)) |c|
+                        @intFromEnum(c)
+                    else
+                        return error.InvalidMapCharacter,
+                };
+
+                b1[idx] = cell;
+                b2[idx] = cell;
+            }
+        }
+    }
+};
