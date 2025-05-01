@@ -30,6 +30,20 @@ pub fn PairOf(comptime H: type, comptime T: type) GZZGTupleOfTypes(.{ H, T }, ty
         // todo: typecheck
         pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_pair_p(a.s) }; }
         pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
+        pub fn isWithChildZ(a: guile.SCM) bool {
+            if (isZ(a)) {
+                if (Child[0] == Any and Child[1] == Any) return true;
+
+                const p = PairOf(Any, Any){ .s = a };
+
+                const child0Is = if (@hasDecl(Child[0], "Child")) Child[0].isWithChildZ else Child[0].isZ;
+                const child1Is = if (@hasDecl(Child[1], "Child")) Child[1].isWithChildZ else Child[1].isZ;
+                
+                return child0Is(p.car().s) and child1Is(p.cdr().s);
+            }
+            
+            return false;
+        }
         pub fn lowerZ(a: Self) Any { return .{ .s = a.s }; }
 
         pub fn car(a: Self) H { return .{ .s = guile.scm_car(a.s) }; }
@@ -58,6 +72,24 @@ pub fn ListOf(comptime T: type) GZZGType(T, type) {
         
         pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_list_p(a) }; }
         pub fn isZ(a: guile.SCM) bool    { return is(a).toZ(); }  // where's the companion fn?
+        pub fn isWithChildZ(a: guile.SCM) bool {
+            if (isZ(a)) {
+                if (Child == Any) return true;
+                
+                const q = ListOf(Any){ .s = a };
+                var itr = q.iterator();
+
+                while (itr.next()) |elm| {
+                    const childIs = if (@hasDecl(Child, "Child")) Child.isWithChildZ else Child.isZ;
+
+                    if (!childIs(elm.s)) return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
         
         pub fn isNull(a: Self) Boolean { return .{ .s = guile.scm_null_p(a.s) }; }
         // pub fn isNullZ(a: List) bool { return guile.scm_is_null(a.s) != 0; } // is null didn't translate correctly

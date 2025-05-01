@@ -32,6 +32,25 @@ pub fn VectorOf(comptime T: type) GZZGType(T, type) {
      
         pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_vector_p(a) }; }
         pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_vector(a) != 0; }
+        pub fn isWithChildZ(a: guile.SCM) bool {
+            if (isZ(a)) {
+                if (Child == Any) return true;
+                
+                const q = VectorOf(Any){ .s = a };
+                var itr = q.iterator();
+                defer itr.close();
+
+                while (itr.next()) |elm| {
+                    const childIs = if (@hasDecl(Child, "Child")) Child.isWithChildZ else Child.isZ;
+
+                    if (!childIs(elm.s)) return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
         pub fn lowerZ(a: Self) Any { return .{ .s = a.s }; }
 
         // * DONE 6.6.10.3 Accessing and Modifying Vector Contents :complete:allFunctions:

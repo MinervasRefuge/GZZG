@@ -229,29 +229,21 @@ fn wrapZig(function: anytype) GZZGFn(@TypeOf(function), fn (...) callconv(.c) gu
                 defer @cVaEnd(&varg);
 
                 inline for (fields, 0..) |field, i| {
-                    const pt = field.type;
-                    const sva = @cVaArg(&varg, guile.SCM);
+                    const PT = field.type;
+                    const scm = @cVaArg(&varg, guile.SCM);
 
-                    if (@hasDecl(pt, "isZ")) { // Common wrapped types
-                        if (pt.isZ(sva)) {
-                            args[i] = .{ .s = sva };
-                        } else {
-                            //todo: We can throw a better exception here...
-                            guile.scm_throw(
-                                Procedure.Symbols.get("type-parameter").s,
-                                List.init(.{
-                                    String.fromUTF8(std.fmt.comptimePrint(
-                                        "Not a {s} at index {d}",
-                                        .{ @typeName(pt), i })).lowerZ(),
-                                    Any{ .s = sva }
-                                }).s
-                            );
-                        }
-                    } else if (pt == guile.SCM) {
-                        args[i] = sva;
-                    } else {
-                        @compileError("Unknown parm type for wrapper function: " ++ @typeName(pt));
-                    }
+                    args[i] = checkGZZGType(PT, scm) catch {
+                        //todo: We can throw a better exception here...
+                        guile.scm_throw(
+                            Procedure.Symbols.get("type-parameter").s,
+                            List.init(.{
+                                String.fromUTF8(std.fmt.comptimePrint(
+                                    "Not a {s} at index {d}",
+                                    .{ @typeName(PT), i })).lowerZ(),
+                                Any{ .s = scm }
+                            }).s
+                        );
+                    };
                 }
             }
 
@@ -260,6 +252,30 @@ fn wrapZig(function: anytype) GZZGFn(@TypeOf(function), fn (...) callconv(.c) gu
             return returnOf(@TypeOf(out), out);
         }
     }.wrapper;
+}
+
+inline fn checkGZZGType(comptime T: type, scm: guile.SCM) !T {
+    if (T == Any) {
+        return .{ .s = scm };
+    } else if (@hasDecl(T, "isZ")) {
+        if (@hasDecl(T, "Child")) { // ListOf, ConsOf, VectorOf... etc
+            // todo: IMPROVE! and fix.
+            
+            if (T.isWithChildZ(scm)) {
+                return .{ .s = scm };
+            } else {
+                return error.BadType;
+            }
+        } else if (T.isZ(scm)) {
+            return .{ .s = scm };
+        } else {
+            return error.BadType;
+        }
+    } else if (T == guile.SCM) {
+        return scm;
+    } else {
+        @compileError("Unknown parm type for wrapper function: " ++ @typeName(T));
+    }
 }
 
 /// Allows for the following return types...
