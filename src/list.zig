@@ -7,6 +7,7 @@ const guile = gzzg.guile;
 
 const GZZGType  = gzzg.contracts.GZZGType;
 const GZZGTypes = gzzg.contracts.GZZGTypes;
+const GZZGTupleOfTypes = gzzg.contracts.GZZGTupleOfTypes;
 
 const Any     = gzzg.Any;
 const Boolean = gzzg.Boolean;
@@ -16,7 +17,7 @@ const Integer = gzzg.Integer;
 //                                           Pair §6.6.8
 //                                           -----------
 
-pub fn PairOf(H: type, T: type) type {
+pub fn PairOf(comptime H: type, comptime T: type) GZZGTupleOfTypes(.{ H, T }, type) {
     return struct {
         s: guile.SCM,
         
@@ -30,6 +31,12 @@ pub fn PairOf(H: type, T: type) type {
         pub fn is (a: guile.SCM) Boolean { return .{ .s = guile.scm_pair_p(a.s) }; }
         pub fn isZ(a: guile.SCM) bool    { return guile.scm_is_pair(a.s) != 0; }
         pub fn lowerZ(a: Self) Any { return .{ .s = a.s }; }
+
+        pub fn car(a: Self) H { return .{ .s = guile.scm_car(a.s) }; }
+        pub fn cdr(a: Self) T { return .{ .s = guile.scm_cdr(a.s) }; }
+
+        pub fn carX(a: Self, value: H) void { _ = guile.scm_set_car_x(a.s, value.s); }
+        pub fn cdrX(a: Self, value: T) void { _ = guile.scm_set_cdr_x(a.s, value.s); }
         
         comptime {
             _ = gzzg.contracts.GZZGType(@This(), void);
@@ -128,6 +135,9 @@ pub fn ListOf(comptime T: type) GZZGType(T, type) {
 
             return if (Boolean.isZ(found)) null else .{ .s = found };
         }
+
+        pub fn car(a: Self) T { return .{ .s = guile.scm_car(a.s) }; }
+        pub fn cdr(a: Self) ListOf(T) { return .{ .s = guile.scm_cdr(a.s) }; }
         
         //pub fn map(proc: Any, lists
         
