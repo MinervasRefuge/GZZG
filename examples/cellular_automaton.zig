@@ -421,6 +421,20 @@ const WireWorld = struct {
             .fbuffer = map.flipBuffer(),
         };
     }
+
+    const example_xor_with_2_clocks: []const []const u8 = &.{
+        "                     ",
+        "  ***tE              ",
+        " *     ****          ",
+        "  *****    *         ",
+        "          ****       ",
+        "          *  ******* ",
+        "          ****       ",
+        "  ***tE    *         ",
+        " *     ****          ",
+        "  Et***              ",
+        "                     ",
+    };
 };
 
 const ConwaysGameOfLife = struct {
@@ -472,6 +486,20 @@ const ConwaysGameOfLife = struct {
             .fbuffer = map.flipBuffer(),
         };
     }
+
+    const example_gosper_glider_gun: []const []const u8 = &.{
+        "                                          ",
+        "                           *              ",
+        "                         * *              ",
+        "               **      **            **   ",
+        "              *   *    **            **   ",
+        "   **        *     *   **                 ",
+        "   **        *   * **    * *              ",
+        "             *     *       *              ",
+        "              *   *                       ",
+        "               **                         ",
+        "                                          ",
+    };
 };
 
 pub fn main() !void {
@@ -488,20 +516,7 @@ pub fn main() !void {
         const size: XY = .{ .x = 22, .y = 11 };
         var map: Map(size, WireWorld.Cell) = .{};
 
-        // XOR with 2 clocks
-        try map.setWorld(&.{
-            "                     ",
-            "  ***tE              ",
-            " *     ****          ",
-            "  *****    *         ",
-            "          ****       ",
-            "          *  ******* ",
-            "          ****       ",
-            "  ***tE    *         ",
-            " *     ****          ",
-            "  Et***              ",
-            "                     ",
-        });
+        try map.setWorld(WireWorld.example_xor_with_2_clocks);
 
         var ww = WireWorld.iterator(&map);
         for (0..75) |_| {
@@ -516,20 +531,7 @@ pub fn main() !void {
         const size: XY = .{ .x = 42 + 25, .y = 30 };
         var map: Map(size, ConwaysGameOfLife.Cell) = .{};
 
-        // Gosper glider gun
-        try map.setWorld(&.{
-            "                                          ",
-            "                           *              ",
-            "                         * *              ",
-            "               **      **            **   ",
-            "              *   *    **            **   ",
-            "   **        *     *   **                 ",
-            "   **        *   * **    * *              ",
-            "             *     *       *              ",
-            "              *   *                       ",
-            "               **                         ",
-            "                                          ",
-        });
+        try map.setWorld(ConwaysGameOfLife.example_gosper_glider_gun);
 
         var cgol = ConwaysGameOfLife.iterator(&map);
         for (0..125) |_| {
@@ -582,7 +584,62 @@ export fn initPlugin() void {
 fn initModule() void {
     CAMap.register();
     CAIterator.register();
+
+    _ = Procedure.define("%" ++ module_name ++ "-types", catypes, null, true);
+
+    // runtime string list
+    // Fix: needs to be exported
+    _ = gzzg.defineZ("example/gosper-glider-gun", exampleGGG());
+    _ = gzzg.defineZ("example/xor-with-2-clocks", exampleXORW2C());
+
+    // comptime variant (POC)
+    {
+        @setEvalBranchQuota(24_200);
+        const ggg: ListOf(String) = .init(comptime asConstArrayOfString(ConwaysGameOfLife.example_gosper_glider_gun));
+        const x2c: ListOf(String) = .init(comptime asConstArrayOfString(WireWorld.example_xor_with_2_clocks));
+        // Fix: needs to be exported
+        _ = gzzg.defineZ("example/comptime-gosper-glider-gun", ggg);
+        _ = gzzg.defineZ("example/comptime-xor-with-2-clocks", x2c);
+    }
 }
+
+//
+//
+
+fn asConstArrayOfString(comptime in: []const []const u8) [in.len]String {
+    const iw = gzzg.internal_workings.string;
+    var out: [in.len]String = undefined;
+    for (in, 0..) |s, idx|
+        out[idx] = iw.Layout.init(iw.staticBuffer(s).ambiguation(), .just_readable).refConst();
+
+    return out;
+}
+
+fn exampleGGG() ListOf(String) {
+    var lst = ListOf(String).init(.{});
+    for (ConwaysGameOfLife.example_gosper_glider_gun) |row| lst = lst.cons(.fromUTF8(row));
+
+    return lst.reverse();
+}
+
+fn exampleXORW2C() ListOf(String) {
+    var lst = ListOf(String).init(.{});
+    for (WireWorld.example_xor_with_2_clocks) |row| lst = lst.cons(.fromUTF8(row));
+
+    return lst.reverse();
+}
+
+fn catypes() ListOf(Symbol) {
+    var lst = ListOf(Symbol).init(.{});
+
+    inline for (CAIterator.Automatons.display_names) |dname|
+        lst = lst.cons(CAIterator.Automatons.cache.get(dname));
+
+    return lst.reverse();
+}
+
+//
+//
 
 const CAMap = struct {
     const ix_name = "map";

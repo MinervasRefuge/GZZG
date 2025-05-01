@@ -36,6 +36,7 @@
 
                                         ; cellular automaton
 (define automaton (ca:make-iterator 'wire-world (ca:make-map 22 11)))
+(define automaton2 (ca:make-iterator 'conways-game-of-life (ca:make-map (+ 42 25) 30)))
 
 (ca:iterator-world!
  automaton
@@ -51,15 +52,34 @@
    "  Et***              "
    "                     "))
 
+;; Fix: Not currently exported
+(ca:iterator-world! automaton2 (@@ (cellular-automaton) example/comptime-gosper-glider-gun))
+
 (dynamic-wind
   (λ () 
     (display cursor-hide)
     (display clear))
   (λ ()
-    (let lp ((v 100))
+    (let lp ((v 75))
       (display seek-home)
       (ca:iterator-next automaton)
       (ca:iterator-print automaton)
+      (usleep 80000)
+      (when (>= v 1)
+        (lp (1- v)))))
+  (λ ()
+    (display cursor-show)
+    (newline)))
+
+(dynamic-wind
+  (λ () 
+    (display cursor-hide)
+    (display clear))
+  (λ ()
+    (let lp ((v 125))
+      (display seek-home)
+      (ca:iterator-next automaton2)
+      (ca:iterator-print automaton2)
       (usleep 80000)
       (when (>= v 1)
         (lp (1- v)))))
